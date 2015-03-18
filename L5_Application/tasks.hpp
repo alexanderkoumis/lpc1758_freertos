@@ -23,6 +23,8 @@
 #ifndef TASKS_HPP_
 #define TASKS_HPP_
 
+#include <memory> // unique_ptr
+
 #include "scheduler_task.hpp"
 #include "soft_timer.hpp"
 #include "command_handler.hpp"
@@ -31,6 +33,9 @@
 
 #include "FreeRTOS.h"
 #include "semphr.h"
+
+#include "io.hpp" // Light_Sensor
+#include "event_groups.h"
 
 
 
@@ -122,5 +127,44 @@ class wirelessTask : public scheduler_task
 };
 
 
+
+namespace konix {
+
+class lightProducerTask : public scheduler_task
+{
+    public:
+        lightProducerTask(EventGroupHandle_t& xLightEventLoop, uint8_t ucPriority);
+        bool init(void);
+        bool run(void *p);
+
+    private:
+        SemaphoreHandle_t mLightLock;
+        EventGroupHandle_t pLightEventLoop;
+        uint32_t usCount;
+        uint64_t ulLightSensorSum;
+};
+
+class lightConsumerTask : public scheduler_task
+{
+    public:
+        lightConsumerTask(EventGroupHandle_t& xLightEventLoop, uint8_t ucPriority);
+        bool init(void);
+        bool run(void *p);
+
+    private:
+        EventGroupHandle_t pLightEventLoop;
+        FILE* sensorFile;
+};
+
+class lightWatchdogTask : public scheduler_task
+{
+    public:
+        lightWatchdogTask(EventGroupHandle_t& xLightEventGroup, uint8_t ucPriority);
+        bool run(void *p);
+    private:
+        EventGroupHandle_t pLightEventGroup;
+};
+
+} // namespace konix
 
 #endif /* TASKS_HPP_ */

@@ -46,6 +46,4 @@ class Light_Sensor : public SingletonTemplate<Light_Sensor>
 };
 
 
-
-
 #endif /* LIGHT_SENSOR_HPP_ */

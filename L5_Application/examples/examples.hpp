@@ -24,14 +24,14 @@
 #ifndef EXAMPLES_HPP_
 #define EXAMPLES_HPP_
 
+#include <memory>
+
 #include "scheduler_task.hpp"
 #include "shared_handles.h"
 #include "uart3.hpp"
 #include "rn_xv_task.hpp"
 #include "FreeRTOS.h"
 #include "semphr.h"
-
-
 
 /**
  * This is the simplest example of a task.  It just computes some work
@@ -128,18 +128,5 @@ class queue_rx : public scheduler_task
         bool run(void *p);
 };
 
-class producer : public scheduler_task
-{
-    public :
-        producer();
-        bool run(void *p);
-};
-
-class consumer : public scheduler_task
-{
-    public :
-        consumer();
-        bool run(void *p);
-};
 
 #endif /* EXAMPLES_HPP_ */
