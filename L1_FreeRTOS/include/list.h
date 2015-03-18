@@ -127,6 +127,8 @@
 	#define configLIST_VOLATILE
 #endif /* configSUPPORT_CROSS_MODULE_OPTIMISATION */
 
+#include "portable/mpu/portmacro.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

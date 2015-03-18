@@ -21,7 +21,7 @@
  *
  ******************************************************************************/
 
-#include <stdint.h>
+//#include <stdint.h>
 
 /* define compiler specific symbols */
 #if defined ( __CC_ARM   )
@@ -431,7 +431,7 @@ uint32_t __STREXW(uint32_t value, uint32_t *addr)
 
 #elif (defined (__GNUC__)) /*------------------ GNU Compiler ---------------------*/
 /* GNU gcc specific functions */
-
+#include <stdint.h>
 /**
  * @brief  Return the Process Stack Pointer
  *
