@@ -162,7 +162,9 @@ class lightWatchdogTask : public scheduler_task
         lightWatchdogTask(EventGroupHandle_t& xLightEventGroup, uint8_t ucPriority);
         bool run(void *p);
     private:
+        bool prvSaveCPUInfo();
         EventGroupHandle_t pLightEventGroup;
+        uint32_t ucCPUInfoCount = 0;
 };
 
 } // namespace konix
