@@ -43,12 +43,12 @@ bool lightProducerTask::run(void *p)
     if (this->usCount == 100)
     {
         xSemaphoreTake(this->mLightLock, portMAX_DELAY);
+        this->usCount = 0;
         uint32_t usAverageLight = this->ulLightSensorSum / 100;
         this->ulLightSensorSum = 0;
         QueueHandle_t sensor_queue_task = getSharedObject(shared_sensor_queue);
         xQueueSend(sensor_queue_task, &usAverageLight, portMAX_DELAY);
         printf("Pushed 100ms-avg light %" PRIu32 " to the queue\n", usAverageLight);
-        this->usCount = 0;
         xEventGroupSetBits(pLightEventLoop, 0);
         xSemaphoreGive(this->mLightLock);
     }
@@ -63,18 +63,12 @@ lightConsumerTask::lightConsumerTask(EventGroupHandle_t& xLightEventGroup, uint8
     printf("sensor.txt opened.\n");
 }
 
-bool lightConsumerTask::init(void)
-{
-    setRunDuration(500);
-    return true;
-}
-
 bool lightConsumerTask::run(void *p)
 {
     uint32_t data = 0;
     uint32_t ulTime = xTaskGetTickCount();
-    xQueueReceive(getSharedObject(shared_sensor_queue), &data, 0);
-    printf("Saving: '%" PRIu32 " %" PRIu32 "' to file\n", ulTime, data);
+    xQueueReceive(getSharedObject(shared_sensor_queue), &data, 500);
+//    printf("Saving: '%" PRIu32 " %" PRIu32 "' to file\n", ulTime, data);
     fprintf(this->sensorFile, "%" PRIu32 " %" PRIu32 "\n", ulTime, data);
     xEventGroupSetBits(pLightEventLoop, 1);
     return true;
@@ -89,13 +83,13 @@ lightWatchdogTask::lightWatchdogTask(EventGroupHandle_t& xLightEventGroup, uint8
 bool lightWatchdogTask::run(void *p)
 {
     EventBits_t uxBits = xEventGroupWaitBits(pLightEventGroup, BIT_N(0) | BIT_N(1), pdTRUE, pdTRUE, 1000);
+
     if (uxBits)
     {
-        printf("Bits cleared successfully\n");
         if (this->ucCPUInfoCount++ == 60)
         {
-            return this->prvSaveCPUInfo();
             this->ucCPUInfoCount = 0;
+            return this->prvSaveCPUInfo();
         }
     }
     else

@@ -102,7 +102,7 @@ class remoteTask : public scheduler_task
 
         uint32_t mNumCodes[10];      ///< IR Number codes
         uint32_t mIrNumber;          ///< Current IR number we're decoding
-        SemaphoreHandle_t mLearnSem; ///< Semaphore to enable IR code learning
+        QueueHandle_t mLearnSem; ///< Semaphore to enable IR code learning
         SoftTimer mIrNumTimer;       ///< Time-out for user entry for 1st and 2nd digit
 };
 
@@ -148,7 +148,6 @@ class lightConsumerTask : public scheduler_task
 {
     public:
         lightConsumerTask(EventGroupHandle_t& xLightEventLoop, uint8_t ucPriority);
-        bool init(void);
         bool run(void *p);
 
     private:
