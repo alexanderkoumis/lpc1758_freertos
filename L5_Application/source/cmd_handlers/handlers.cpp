@@ -47,15 +47,13 @@
 
 namespace konix {
 
-//CMD_HANDLER_FUNC(taskHandler)
-
 static const char* cTaskErorMsg = "Invalid! Syntax: task (suspend|resume) <op_name>";
 
-bool taskHandler(str& cmdParams, CharDev& output, void* pDataParam)
+//bool taskHandler(str& cmdParams, CharDev& output, void* pDataParam)
+CMD_HANDLER_FUNC(taskHandler)
 {
     char *taskStr = NULL;
     char *opStr = NULL;
-
     int numArgs = cmdParams.tokenize(" ", 2, &taskStr, &opStr);
     output.printf("taskStr: %s  opStr: %s\n", taskStr, opStr);
     if (numArgs < 2)
@@ -63,13 +61,12 @@ bool taskHandler(str& cmdParams, CharDev& output, void* pDataParam)
         output.printf(cTaskErorMsg);
         return false;
     }
-
-    scheduler_task* pTaskPtr = scheduler_task::getTaskPtrByName((const char*)taskStr);
+//    scheduler_task* pTaskPtr = scheduler_task::getTaskPtrByName((const char*)taskStr);
+    scheduler_task* pTaskPtr = scheduler_task::getTaskPtrByName("light_producer");
     TaskHandle_t taskHandle = pTaskPtr->getTaskHandle();
-
     if (strcmp(opStr, "suspend") == 0) {
         output.printf("Task suspended\n");
-        vTaskResume(taskHandle);
+        vTaskSuspend(taskHandle);
     }
     else if (strcmp(opStr, "resume") == 0) {
         output.printf("Task resumed\n");

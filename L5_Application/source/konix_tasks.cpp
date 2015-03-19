@@ -38,17 +38,17 @@ bool lightProducerTask::init(void)
 bool lightProducerTask::run(void *p)
 {
     Light_Sensor& pLightSensor = Light_Sensor::getInstance();
-    ulLightSensorSum += pLightSensor.getRawValue();
-    usCount++;
-    if (usCount == 100)
+    this->ulLightSensorSum += pLightSensor.getRawValue();
+    this->usCount++;
+    if (this->usCount == 100)
     {
         xSemaphoreTake(this->mLightLock, portMAX_DELAY);
-        uint32_t usAverageLight = ulLightSensorSum / 100;
-        ulLightSensorSum = 0;
+        uint32_t usAverageLight = this->ulLightSensorSum / 100;
+        this->ulLightSensorSum = 0;
         QueueHandle_t sensor_queue_task = getSharedObject(shared_sensor_queue);
         xQueueSend(sensor_queue_task, &usAverageLight, portMAX_DELAY);
         printf("Pushed 100ms-avg light %" PRIu32 " to the queue\n", usAverageLight);
-        usCount = 0;
+        this->usCount = 0;
         xEventGroupSetBits(pLightEventLoop, 0);
         xSemaphoreGive(this->mLightLock);
     }
@@ -92,15 +92,17 @@ bool lightWatchdogTask::run(void *p)
     if (uxBits)
     {
         printf("Bits cleared successfully\n");
-        if (ucCPUInfoCount++ == 60)
+        if (this->ucCPUInfoCount++ == 60)
         {
             return this->prvSaveCPUInfo();
+            this->ucCPUInfoCount = 0;
         }
     }
     else
     {
+        FILE* stuckFile;
+        stuckFile = fopen("0:stuck.txt", "w");
         printf("Bits not cleared... stuck!\n");
-        FILE* stuckFile = fopen("0:stuck.txt", "w");
         fprintf(stuckFile, "Possible stuck process: %s\n", LPC_RTC->GPREG0);
         fclose(stuckFile);
     }

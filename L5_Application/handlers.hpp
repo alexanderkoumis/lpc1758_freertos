@@ -25,11 +25,8 @@
 
 #include "command_handler.hpp"
 
-namespace konix
-{
 // Handler for task control
 CMD_HANDLER_FUNC(taskHandler);
-}
 
 /// Handler for task list & CPU Information
 CMD_HANDLER_FUNC(taskListHandler);
