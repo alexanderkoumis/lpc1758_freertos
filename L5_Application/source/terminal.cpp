@@ -70,6 +70,8 @@ bool terminalTask::taskEntry()
     /* remoteTask() creates shared object in its init(), so we can get it now */
     CommandProcessor &cp = mCmdProc;
 
+    cp.addHandler(konix::taskHandler, "task", "Syntax: 'task (suspend|resume) <task_name>'");
+
     // System information handlers
     cp.addHandler(taskListHandler, "info",    "Task/CPU Info.  Use 'info 200' to get CPU during 200ms");
     cp.addHandler(memInfoHandler,  "meminfo", "See memory info");
@@ -161,6 +163,10 @@ bool terminalTask::taskEntry()
     /* Now update our copy of disk telemetry */
     tlm_binary_get_one(disk, mpBinaryDiskTlm);
     #endif
+
+    STR_ON_STACK(task, 8);
+    task = "task suspend light_producer";
+    mCmdProc.handleCommand(task, uart0);
 
     /* Display "help" command on UART0 */
     STR_ON_STACK(help, 8);

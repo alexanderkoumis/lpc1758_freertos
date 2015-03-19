@@ -45,6 +45,44 @@
 #include "c_tlm_stream.h"
 #include "c_tlm_var.h"
 
+namespace konix {
+
+//CMD_HANDLER_FUNC(taskHandler)
+
+static const char* cTaskErorMsg = "Invalid! Syntax: task (suspend|resume) <op_name>";
+
+bool taskHandler(str& cmdParams, CharDev& output, void* pDataParam)
+{
+    char *taskStr = NULL;
+    char *opStr = NULL;
+
+    int numArgs = cmdParams.tokenize(" ", 2, &taskStr, &opStr);
+    output.printf("taskStr: %s  opStr: %s\n", taskStr, opStr);
+    if (numArgs < 2)
+    {
+        output.printf(cTaskErorMsg);
+        return false;
+    }
+
+    scheduler_task* pTaskPtr = scheduler_task::getTaskPtrByName((const char*)taskStr);
+    TaskHandle_t taskHandle = pTaskPtr->getTaskHandle();
+
+    if (strcmp(opStr, "suspend") == 0) {
+        output.printf("Task suspended\n");
+        vTaskResume(taskHandle);
+    }
+    else if (strcmp(opStr, "resume") == 0) {
+        output.printf("Task resumed\n");
+        vTaskResume(taskHandle);
+    }
+    else {
+        output.printf(cTaskErorMsg);
+    }
+    return true;
+}
+
+} // namespace konix
+
 
 
 CMD_HANDLER_FUNC(taskListHandler)

@@ -89,14 +89,16 @@ lightWatchdogTask::lightWatchdogTask(EventGroupHandle_t& xLightEventGroup, uint8
 bool lightWatchdogTask::run(void *p)
 {
     EventBits_t uxBits = xEventGroupWaitBits(pLightEventGroup, BIT_N(0) | BIT_N(1), pdTRUE, pdTRUE, 1000);
-    if (uxBits) {
+    if (uxBits)
+    {
         printf("Bits cleared successfully\n");
         if (ucCPUInfoCount++ == 60)
         {
             return this->prvSaveCPUInfo();
         }
     }
-    else {
+    else
+    {
         printf("Bits not cleared... stuck!\n");
         FILE* stuckFile = fopen("0:stuck.txt", "w");
         fprintf(stuckFile, "Possible stuck process: %s\n", LPC_RTC->GPREG0);
@@ -116,6 +118,7 @@ bool lightWatchdogTask::prvSaveCPUInfo()
             uxTaskGetSystemState(&taskStatusTbl[0], uMaxTasks, &ulTotalRunTime);
 
     cpuFile = fopen("0:cpu.txt", "w");
+    printf("Saving to log:\n");
     printf("Saving: \"%10s Sta Pr Stack CPU%%          Time\"\n", "Name");
     fprintf(cpuFile, "%10s Sta Pr Stack CPU%%          Time\n", "Name");
     for(unsigned priorityNum = 0; priorityNum < configMAX_PRIORITIES; priorityNum++)
