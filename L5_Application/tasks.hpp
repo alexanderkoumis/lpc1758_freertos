@@ -23,6 +23,8 @@
 #ifndef TASKS_HPP_
 #define TASKS_HPP_
 
+#include <memory>
+
 #include "scheduler_task.hpp"
 #include "soft_timer.hpp"
 #include "command_handler.hpp"
@@ -32,7 +34,7 @@
 #include "FreeRTOS.h"
 #include "semphr.h"
 
-
+#include "pixy.hpp"
 
 /**
  * Terminal task is our UART0 terminal that handles our commands into the board.
@@ -121,6 +123,31 @@ class wirelessTask : public scheduler_task
         }
 };
 
+namespace konix
+{
 
+class pixyTask : public scheduler_task
+{
+	public:
+
+		pixyTask(uint8_t priority) : scheduler_task("pixy", 2048, priority)
+		{
+		}
+		bool init(void)
+		{
+			pPixyPtr.reset(new konix::Pixy);
+			return true;
+		}
+		bool run(void *p)
+		{
+			pPixyPtr->StateMachine();
+			return true;
+		}
+
+	private:
+		std::unique_ptr<konix::Pixy> pPixyPtr;
+};
+
+}
 
 #endif /* TASKS_HPP_ */
