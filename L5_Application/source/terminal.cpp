@@ -131,14 +131,14 @@ bool terminalTask::taskEntry()
     #endif
 
     // Initialize Interrupt driven version of getchar & putchar
-//    Uart0& uart0 = Uart0::getInstance();
-//    bool success = uart0.init(SYS_CFG_UART0_BPS, 32, SYS_CFG_UART0_TXQ_SIZE);
-//    uart0.setReady(true);
-//    sys_set_inchar_func(uart0.getcharIntrDriven);
-//    sys_set_outchar_func(uart0.putcharIntrDriven);
-//
-//    /* Add UART0 to command input/output */
-//    addCommandChannel(&uart0, true);
+    Uart0& uart0 = Uart0::getInstance();
+    bool success = uart0.init(SYS_CFG_UART0_BPS, 32, SYS_CFG_UART0_TXQ_SIZE);
+    uart0.setReady(true);
+    sys_set_inchar_func(uart0.getcharIntrDriven);
+    sys_set_outchar_func(uart0.putcharIntrDriven);
+
+    /* Add UART0 to command input/output */
+    addCommandChannel(&uart0, true);
 
     // Xbee Bluetooth start
     Uart2& uart2 = Uart2::getInstance();
