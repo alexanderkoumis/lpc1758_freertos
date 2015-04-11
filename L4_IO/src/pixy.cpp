@@ -6,7 +6,20 @@
 
 namespace konix {
 
-Pixy::Pixy() : state_(START), recv_word_(0x00), img_count_(0), block_count_(0) {
+static PixyBlockType last_block_type;
+
+
+static inline unsigned char konix_exchange_byte(LPC_SSP_TypeDef *pSSP, char out) {
+	pSSP->DR = out;
+	while(pSSP->SR & (1 << 4)); // Wait until SSP is busy
+	return pSSP->DR;
+}
+
+Pixy::Pixy() :
+    state_(START),
+	recv_word_(0x00),
+	img_count_(0),
+	block_count_(0) {
   while(LPC_SSP1->SR & (1 << 4));
   LPC_GPIO0->FIOCLR = (1 << 16); // P0[16] as SSP1
 }
@@ -15,14 +28,21 @@ void Pixy::StateMachine() {
   switch(state_) {
     case START: {
       while ((recv_word_ != 0xaa55)) {
-        recv_word_ = ReadWord();
+//        recv_word_ = ReadWord();
 //        u0_dbg_printf("recv_word_: %04x\n", recv_word_);
+    	unsigned char recv_char = konix_exchange_byte(LPC_SSP1, 0x00);
+    	char recv_char_2 = recv_char;
+        u0_dbg_printf("%x, %u, %d, %x, %u, %d\n", recv_char, recv_char, recv_char,
+        										 (~recv_char) + 0x01,
+												 (~recv_char) + 0x01,
+												 (~recv_char) + 0x01);
       }
       recv_word_ = ReadWord();
       while ((recv_word_ != 0xaa55) && (recv_word_ != 0xaa56)) {
         recv_word_ = ReadWord();
       }
-      curr_block_.colored_ = (recv_word_ == 0xaa56) ? true : false;
+
+      last_block_type = (recv_word_ == 0xaa56) ? NORMAL : COLOR;
       state_ = READING_SAME_FRAME;
       break;
     }
@@ -55,13 +75,11 @@ void Pixy::StateMachine() {
     }
     case DONE: {
       u0_dbg_printf("Image #%d - Block #%d\n"
-    		        "  Colored     : %d\n"
     		        "  Signature   : %02x\n"
 					"  Coordinates : [%02x x %02x]\n"
 					"  Size        : [%02x x %02x]\n"
 					"  Angle       : %02x\n",
 					img_count_, block_count_++,
-					curr_block_.colored_,
 					curr_block_.signature_,
 					curr_block_.x_, curr_block_.y_,
 					curr_block_.height_, curr_block_.width_,
