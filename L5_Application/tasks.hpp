@@ -23,6 +23,8 @@
 #ifndef TASKS_HPP_
 #define TASKS_HPP_
 
+#include <memory>
+
 #include "scheduler_task.hpp"
 #include "soft_timer.hpp"
 #include "command_handler.hpp"
@@ -31,6 +33,9 @@
 
 #include "FreeRTOS.h"
 #include "semphr.h"
+
+#include "gpio.hpp"
+#include "event_groups.h"
 
 
 
@@ -121,6 +126,55 @@ class wirelessTask : public scheduler_task
         }
 };
 
+namespace team9
+{
 
+struct motor_command_t
+{
+	motor_command_t() : direction_(false), steps_(0) {}
+	motor_command_t(bool direction, int steps) : direction_(false), steps_(0) {}
+    bool direction_;
+    int steps_;
+};
+
+typedef enum {
+    shared_motorQueueId,
+} sharedHandleId_t;
+
+class MotorProducerTask : public scheduler_task
+{
+	public:
+		MotorProducerTask(EventGroupHandle_t& xMotorEventGroup, uint8_t priority);
+		bool init(void);
+		bool run(void *p);
+
+	private:
+		void _toggle_directio();
+		EventGroupHandle_t pMotorEventLoop;
+		GPIO pwm_in;
+		int step_count;
+};
+
+class MotorConsumerTask : public scheduler_task
+{
+	public:
+		MotorConsumerTask (EventGroupHandle_t& xMotorEventGroup, uint8_t priority);
+		bool run(void *p);
+
+	private:
+		uint32_t _set_frequency(uint32_t freq_hz);
+		EventGroupHandle_t pMotorEventLoop;
+		void _init_motor_pwm();
+		void _poll_end(uint32_t counter_max);
+		void _stop_counter();
+		void _start_counter();
+
+		const TickType_t xDelay_sec = 1000 / portTICK_PERIOD_MS;
+        const int pclk_divider = 8;
+        const int steps_per_rotation = 400;
+        unsigned int sys_clk;
+};
+
+} // namespace team9
 
 #endif /* TASKS_HPP_ */
