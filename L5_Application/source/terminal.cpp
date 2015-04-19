@@ -23,6 +23,7 @@
 #include "semphr.h"
 
 #include "uart0.hpp"        // Interrupt driven UART0 driver
+#include "uart2.hpp"
 #include "nrf_stream.hpp"
 
 #include "lpc_sys.h"        // Set input/output char functions
@@ -38,7 +39,7 @@
 #include "c_tlm_stream.h"
 #include "c_tlm_binary.h"
 
-
+#include "printf_lib.h"
 
 #define MAX_COMMANDLINE_INPUT   128              ///< Max characters for command-line input
 #define CMD_TIMEOUT_DISK_VARS   (2 * 60 * 1000)  ///< Disk variables are saved if no command comes in for this duration
@@ -139,6 +140,16 @@ bool terminalTask::taskEntry()
     /* Add UART0 to command input/output */
     addCommandChannel(&uart0, true);
 
+    // Xbee Bluetooth start
+    Uart2& uart2 = Uart2::getInstance();
+    bool success_xbee = uart2.init(115200, 128, 256);
+    if (!success_xbee) {
+    	u0_dbg_printf("Couldn't connect uart2 to the RN42XV!\n");
+    }
+    uart2.setReady(true);
+    addCommandChannel(&uart2, true);
+    // Xbee Bluetooth end
+
     #if TERMINAL_USE_NRF_WIRELESS
     do {
         NordicStream& nrf = NordicStream::getInstance();
@@ -165,9 +176,10 @@ bool terminalTask::taskEntry()
     /* Display "help" command on UART0 */
     STR_ON_STACK(help, 8);
     help = "help";
-    mCmdProc.handleCommand(help, uart0);
+//    mCmdProc.handleCommand(help, uart0);
+    mCmdProc.handleCommand(help, uart2);
 
-    return success;
+    return success_xbee;
 }
 
 bool terminalTask::run(void* p)
