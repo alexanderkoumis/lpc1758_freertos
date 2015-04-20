@@ -23,7 +23,7 @@
 #ifndef TASKS_HPP_
 #define TASKS_HPP_
 
-#include <memory>
+
 
 #include "scheduler_task.hpp"
 #include "soft_timer.hpp"
@@ -55,11 +55,11 @@ class terminalTask : public scheduler_task
 
     private:
         // Command channels device and input command str
-        typedef struct {
+        typedef struct cmdChan_t{
             CharDev *iodev; ///< The IO channel
             str *cmdstr;    ///< The command string
             bool echo;      ///< If input should be echo'd back
-        } cmdChan_t;
+        };
 
         VECTOR<cmdChan_t> mCmdIface;   ///< Command interfaces
         CommandProcessor mCmdProc;     ///< Command processor
@@ -129,50 +129,50 @@ class wirelessTask : public scheduler_task
 namespace team9
 {
 
-struct motor_command_t
+struct MotorCommand
 {
-	motor_command_t() : direction_(false), steps_(0) {}
-	motor_command_t(bool direction, int steps) : direction_(false), steps_(0) {}
-    bool direction_;
-    int steps_;
+	enum Direction {LEFT, RIGHT};
+	MotorCommand() : direction_(LEFT), steps_(0) {}
+	MotorCommand(Direction direction, int steps) : direction_(LEFT), steps_(0) {}
+	Direction direction_;
+	int steps_;
 };
 
 typedef enum {
     shared_motorQueueId,
 } sharedHandleId_t;
 
-class MotorProducerTask : public scheduler_task
+class ControllerTask : public scheduler_task
 {
 	public:
-		MotorProducerTask(EventGroupHandle_t& xMotorEventGroup, uint8_t priority);
-		bool init(void);
+		ControllerTask(EventGroupHandle_t& xMotorEventGroup, uint8_t priority);
 		bool run(void *p);
 
 	private:
-		void _toggle_directio();
 		EventGroupHandle_t pMotorEventLoop;
-		GPIO pwm_in;
-		int step_count;
 };
 
-class MotorConsumerTask : public scheduler_task
+class MotorTask : public scheduler_task
 {
 	public:
-		MotorConsumerTask (EventGroupHandle_t& xMotorEventGroup, uint8_t priority);
+		MotorTask (EventGroupHandle_t& xMotorEventGroup, uint8_t priority);
 		bool run(void *p);
 
 	private:
 		uint32_t _set_frequency(uint32_t freq_hz);
-		EventGroupHandle_t pMotorEventLoop;
 		void _init_motor_pwm();
+		void _init_motor_dir_en();
 		void _poll_end(uint32_t counter_max);
 		void _stop_counter();
 		void _start_counter();
 
-		const TickType_t xDelay_sec = 1000 / portTICK_PERIOD_MS;
-        const int pclk_divider = 8;
-        const int steps_per_rotation = 400;
-        unsigned int sys_clk;
+		EventGroupHandle_t pMotorEventGroup;
+		GPIO pwm_dir_;
+		GPIO pwm_en_;
+		const TickType_t xDelaySec = 1000 / portTICK_PERIOD_MS;
+        const int pclk_divider_ = 8;
+        const int steps_per_rot_ = 400;
+        unsigned int sys_clk_;
 };
 
 } // namespace team9
