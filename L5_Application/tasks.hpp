@@ -132,44 +132,38 @@ namespace team9
 struct MotorCommand
 {
 	enum Direction {LEFT, RIGHT};
-	MotorCommand() : direction_(LEFT), steps_(0) {}
-	MotorCommand(Direction direction, int steps) : direction_(LEFT), steps_(0) {}
+	MotorCommand() : direction_(LEFT), rotations_(0) {}
+	MotorCommand(Direction direction, int rotations) : direction_(LEFT), rotations_(rotations) {}
 	Direction direction_;
-	int steps_;
+	int rotations_;
 };
 
-typedef enum {
-    shared_motorQueueId,
-} sharedHandleId_t;
+class MotorMasterTask : public scheduler_task
+{
+    public:
+        MotorMasterTask(EventGroupHandle_t& xMotorEventGroup, uint8_t priority);
+        bool run(void *p);
+    private:
+        void Rotate(MotorCommand motor_command);
+        EventGroupHandle_t pMotorEventGroup;
+};
 
-class ControllerTask : public scheduler_task
+class MotorSlaveTask : public scheduler_task
 {
 	public:
-		ControllerTask(EventGroupHandle_t& xMotorEventGroup, uint8_t priority);
+		MotorSlaveTask (EventGroupHandle_t& xMotorEventGroup, uint8_t priority);
 		bool run(void *p);
 
 	private:
-		EventGroupHandle_t pMotorEventLoop;
-};
-
-class MotorTask : public scheduler_task
-{
-	public:
-		MotorTask (EventGroupHandle_t& xMotorEventGroup, uint8_t priority);
-		bool run(void *p);
-
-	private:
-		uint32_t _set_frequency(uint32_t freq_hz);
+        void _set_frequency(uint32_t freq_hz);
 		void _init_motor_pwm();
 		void _init_motor_dir_en();
-		void _poll_end(uint32_t counter_max);
 		void _stop_counter();
 		void _start_counter();
 
 		EventGroupHandle_t pMotorEventGroup;
 		GPIO pwm_dir_;
 		GPIO pwm_en_;
-		const TickType_t xDelaySec = 1000 / portTICK_PERIOD_MS;
         const int pclk_divider_ = 8;
         const int steps_per_rot_ = 400;
         unsigned int sys_clk_;
