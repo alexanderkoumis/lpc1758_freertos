@@ -3603,6 +3603,23 @@ TickType_t uxReturn;
 
 #endif /* configUSE_MUTEXES */
 
+
+
+//// Begin additional FreeRTOS functionality
+
+#if ( configUSE_TASK_NOTIFICATIONS == 1 )
+    volatile uint32_t ulNotifiedValue;
+    volatile eNotifyValue eNotifyState;
+#endif
+
+//// End additional FreeRTOS functionality
+
+
+
+
+
+
+
 /*-----------------------------------------------------------*/
 
 #ifdef FREERTOS_MODULE_TEST

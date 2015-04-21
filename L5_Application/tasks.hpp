@@ -129,14 +129,8 @@ class wirelessTask : public scheduler_task
 namespace team9
 {
 
-struct MotorCommand
-{
-	enum Direction {LEFT, RIGHT};
-	MotorCommand() : direction_(LEFT), rotations_(0) {}
-	MotorCommand(Direction direction, int rotations) : direction_(LEFT), rotations_(rotations) {}
-	Direction direction_;
-	int rotations_;
-};
+
+enum MotorDirection {LEFT, RIGHT};
 
 class MotorMasterTask : public scheduler_task
 {
@@ -144,7 +138,8 @@ class MotorMasterTask : public scheduler_task
         MotorMasterTask(EventGroupHandle_t& xMotorEventGroup, uint8_t priority);
         bool run(void *p);
     private:
-        void Rotate(MotorCommand motor_command);
+        void Rotate(MotorDirection direction, uint32_t ulRotations);
+//        void Rotate(MotorCommand motor_command);
         EventGroupHandle_t pMotorEventGroup;
 };
 
