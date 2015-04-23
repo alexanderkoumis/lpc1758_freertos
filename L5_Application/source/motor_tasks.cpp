@@ -13,23 +13,21 @@ MotorMasterTask::MotorMasterTask (EventGroupHandle_t& xMotorEventGroup, uint8_t 
         scheduler_task("MotorMaster", 512 * 8, priority),
         pMotorEventGroup(xMotorEventGroup)
 {
-    QueueHandle_t qh = xQueueCreate(1, sizeof(int));
+    QueueHandle_t qh = xQueueCreate(1, sizeof(MotorCommand));
     addSharedObject(shared_motor_queue, qh);
 }
 
 bool MotorMasterTask::run(void *p)
 {
     Rotate(MotorCommand(MotorCommand::LEFT, 1));
-    Rotate(MotorCommand(MotorCommand::LEFT, 2));
-    Rotate(MotorCommand(MotorCommand::LEFT, 3));
-    Rotate(MotorCommand(MotorCommand::LEFT, 10));
+    delay_ms(10000);
     return true;
 }
 
 void MotorMasterTask::Rotate(MotorCommand rotate_command)
 {
     QueueHandle_t sensor_queue_task = getSharedObject(shared_motor_queue);
-    xQueueSend(sensor_queue_task, &rotate_command.rotations_, portMAX_DELAY);
+    xQueueSend(sensor_queue_task, &rotate_command, portMAX_DELAY);
 }
 
 MotorSlaveTask::MotorSlaveTask (EventGroupHandle_t& xMotorEventGroup, uint8_t priority) :
@@ -44,12 +42,13 @@ MotorSlaveTask::MotorSlaveTask (EventGroupHandle_t& xMotorEventGroup, uint8_t pr
 
 void MotorSlaveTask::_init_motor_dir_en()
 {
-    pwm_dir_.setAsInput();
-    pwm_dir_.enableOpenDrainMode();
-    pwm_dir_.setHigh();
     pwm_en_.setAsInput();
     pwm_en_.enableOpenDrainMode();
     pwm_en_.setHigh();
+    delay_ms(1000);
+    pwm_dir_.setAsInput();
+    pwm_dir_.enableOpenDrainMode();
+    pwm_dir_.setHigh();
 }
 
 void MotorSlaveTask::_init_motor_pwm()
@@ -63,21 +62,56 @@ void MotorSlaveTask::_init_motor_pwm()
 }
 
 bool MotorSlaveTask::run(void *p) {
-    int rotations = 0;
-    xQueueReceive(shared_motor_queue, rotations, portMAX_DELAY);
-    _start_counter();
-    delay_ms(rotations * 1000);
-    _stop_counter();
-    delay_ms(1000); // pause a second after rotation
+    MotorCommand operation;
+    if (xQueueReceive(getSharedObject(shared_motor_queue), &operation, portMAX_DELAY)) {
+        uint32_t counter_max = _set_frequency(1);
+        _start_counter();
+        _poll_end(counter_max);
+        delay_ms(10000);
+    }
+
     return true;
 }
 
-void MotorSlaveTask::_set_frequency(uint32_t freq_hz)
+uint32_t MotorSlaveTask::_set_frequency(uint32_t freq_hz)
 {
     uint32_t cnt_freq = sys_clk_ / pclk_divider_; // 6MHz iff 48MHz / 8.
     uint32_t cnt_setting = (uint32_t) (cnt_freq / (1.0 * steps_per_rot_ * freq_hz) + 0.5);  // Round up.
     LPC_MCPWM->MCPER0 = cnt_setting; // Set channel 0 limit register
     LPC_MCPWM->MCPW0 = (uint32_t) cnt_setting / 2.0 + 0.5; // Set channel 0 match register - 50% duty cycle rounded up.
+    return cnt_setting;
+}
+
+
+void MotorSlaveTask::_poll_end(uint32_t counter_max)
+{
+    // This method triggers the stop condition for the motor controller.
+    // Using upper and lower 10% of max counter value to trigger events.
+    bool has_seen_upper_thresh = false;
+    uint32_t upper_thresh = counter_max * 0.9;
+    uint32_t lower_thresh = counter_max * 0.1;
+    int spin_count = 0;
+
+
+    while(1 == 1)
+    {
+        if(LPC_MCPWM->MCTIM0 >= upper_thresh)
+        {
+            has_seen_upper_thresh = true;
+        }
+        if(has_seen_upper_thresh && LPC_MCPWM->MCTIM0 <= lower_thresh)
+        {
+            u0_dbg_printf("spin count: %d\n", spin_count);
+            has_seen_upper_thresh = false;
+            if (spin_count > (steps_per_rot_/2))
+            {
+                _stop_counter();
+                break;
+            }
+            spin_count++;
+        }
+    }
+
 }
 
 void MotorSlaveTask::_start_counter()

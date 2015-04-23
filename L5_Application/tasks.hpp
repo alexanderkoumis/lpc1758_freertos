@@ -155,7 +155,8 @@ class MotorSlaveTask : public scheduler_task
 		bool run(void *p);
 
 	private:
-        void _set_frequency(uint32_t freq_hz);
+		void _poll_end(uint32_t counter_max);
+        uint32_t _set_frequency(uint32_t freq_hz);
 		void _init_motor_pwm();
 		void _init_motor_dir_en();
 		void _stop_counter();
