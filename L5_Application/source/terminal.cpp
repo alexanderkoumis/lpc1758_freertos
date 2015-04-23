@@ -71,6 +71,9 @@ bool terminalTask::taskEntry()
     /* remoteTask() creates shared object in its init(), so we can get it now */
     CommandProcessor &cp = mCmdProc;
 
+    // Bluetooth handler
+    cp.addHandler(motorHandler, "motor", "Specify direction to spin and number of revolutions. Ex: motor left 2.5");
+
     // System information handlers
     cp.addHandler(taskListHandler, "info",    "Task/CPU Info.  Use 'info 200' to get CPU during 200ms");
     cp.addHandler(memInfoHandler,  "meminfo", "See memory info");
@@ -142,12 +145,15 @@ bool terminalTask::taskEntry()
 
     // Xbee Bluetooth start
     Uart2& uart2 = Uart2::getInstance();
-    bool success_xbee = uart2.init(115200, 128, 256);
-    if (!success_xbee) {
-    	u0_dbg_printf("Couldn't connect uart2 to the RN42XV!\n");
+    if (uart2.init(115200, 128, 256)) {
+        uart2.setReady(true);
+        sys_set_inchar_func(uart2.getcharIntrDriven);
+        sys_set_outchar_func(uart2.putcharIntrDriven);
+        addCommandChannel(&uart2, true);
     }
-    uart2.setReady(true);
-    addCommandChannel(&uart2, true);
+    else {
+        u0_dbg_printf("Couldn't connect uart2 to the RN42XV!\n");
+    }
     // Xbee Bluetooth end
 
     #if TERMINAL_USE_NRF_WIRELESS
@@ -176,10 +182,10 @@ bool terminalTask::taskEntry()
     /* Display "help" command on UART0 */
     STR_ON_STACK(help, 8);
     help = "help";
-//    mCmdProc.handleCommand(help, uart0);
+    mCmdProc.handleCommand(help, uart0);
     mCmdProc.handleCommand(help, uart2);
 
-    return success_xbee;
+    return success;
 }
 
 bool terminalTask::run(void* p)
