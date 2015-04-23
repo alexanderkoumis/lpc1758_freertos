@@ -17,6 +17,7 @@
  */
 
 #include <stdio.h>              // printf()
+#include <stdlib.h>             // strtof();
 #include <string.h>
 #include <time.h>
 
@@ -46,6 +47,22 @@
 #include "c_tlm_var.h"
 
 
+CMD_HANDLER_FUNC(motorHandler)
+{
+    static const char* cMotorErorMsg = "Invalid! Syntax: motor (left|right) <revolutions>";
+    char *rotateDir = NULL;
+    char *rotateAmt = NULL;
+
+    int num_tokens = cmdParams.tokenize(" ", 2, &rotateDir, &rotateAmt);
+    if (num_tokens < 2)
+    {
+        output.printf("%s\nAt least two args required!\n", cMotorErorMsg);
+        return false;
+    }
+    float n = strtof(rotateAmt,NULL);
+    output.printf("Direction: %s\nNumber of cycles: %f\n\r", rotateDir, n);
+    return true;
+}
 
 CMD_HANDLER_FUNC(taskListHandler)
 {
