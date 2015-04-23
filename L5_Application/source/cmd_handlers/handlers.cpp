@@ -45,7 +45,20 @@
 #include "c_tlm_stream.h"
 #include "c_tlm_var.h"
 
-
+CMD_HANDLER_FUNC(motorHandler)
+{
+    if (cmdParams.beginsWithIgnoreCase("left")) {
+        output.printf("You told me to spin left\n");
+    }
+    else if (cmdParams.beginsWithIgnoreCase("right")) {
+        output.printf("You told me to spin right\n");
+    }
+    else {
+        output.printf("Command syntax error. Correct usage: motor left 2.5\n");
+        return false;
+    }
+    return true;
+}
 
 CMD_HANDLER_FUNC(taskListHandler)
 {
