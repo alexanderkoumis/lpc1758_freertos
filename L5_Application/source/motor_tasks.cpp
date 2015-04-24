@@ -1,57 +1,35 @@
 #include "tasks.hpp"
 #include "printf_lib.h"
 #include "utilities.h"
+#include "shared_handles.h" // shared_MotorQueue
 
 namespace team9
 {
 
-typedef enum {
-    shared_motor_queue
-} sharedHandleId_t;
-
-MotorMasterTask::MotorMasterTask (EventGroupHandle_t& xMotorEventGroup, uint8_t priority) :
-        scheduler_task("MotorMaster", 512 * 8, priority),
-        pMotorEventGroup(xMotorEventGroup)
+MotorTask_t::MotorTask_t (uint8_t ucPriority) :
+        scheduler_task("MotorSlave", 512 * 8, ucPriority),
+        xPWM_DIR(P1_20), xPWM_EN(P1_23), ulSysClk(48000000)
 {
-    QueueHandle_t qh = xQueueCreate(1, sizeof(MotorCommand));
-    addSharedObject(shared_motor_queue, qh);
+    QueueHandle_t xQHandle = xQueueCreate(1, sizeof(xMotorCommand_t));
+    addSharedObject(shared_MotorQueue, xQHandle);
+    ulSysClk = sys_get_cpu_clock();
+    vInitGPIO();
+    vInitPWM();
+    ulSetFrequency(1);
 }
 
-bool MotorMasterTask::run(void *p)
+void MotorTask_t::vInitGPIO()
 {
-    Rotate(MotorCommand(MotorCommand::LEFT, 1));
-    delay_ms(10000);
-    return true;
-}
-
-void MotorMasterTask::Rotate(MotorCommand rotate_command)
-{
-    QueueHandle_t sensor_queue_task = getSharedObject(shared_motor_queue);
-    xQueueSend(sensor_queue_task, &rotate_command, portMAX_DELAY);
-}
-
-MotorSlaveTask::MotorSlaveTask (EventGroupHandle_t& xMotorEventGroup, uint8_t priority) :
-        scheduler_task("MotorSlave", 512 * 8, priority),
-        pMotorEventGroup(xMotorEventGroup), pwm_dir_(P1_20), pwm_en_(P1_23)
-{
-    sys_clk_ = sys_get_cpu_clock();
-    _init_motor_dir_en();
-    _init_motor_pwm();
-    _set_frequency(1);
-}
-
-void MotorSlaveTask::_init_motor_dir_en()
-{
-    pwm_en_.setAsInput();
-    pwm_en_.enableOpenDrainMode();
-    pwm_en_.setHigh();
+    xPWM_EN.setAsInput();
+    xPWM_EN.enableOpenDrainMode();
+    xPWM_EN.setHigh();
     delay_ms(1000);
-    pwm_dir_.setAsInput();
-    pwm_dir_.enableOpenDrainMode();
-    pwm_dir_.setHigh();
+    xPWM_DIR.setAsInput();
+    xPWM_DIR.enableOpenDrainMode();
+    xPWM_DIR.setHigh();
 }
 
-void MotorSlaveTask::_init_motor_pwm()
+void MotorTask_t::vInitPWM()
 {
     LPC_SC->PCONP |= (1 << 17);           // Set PCMCPWM - bit 17
     LPC_SC->PCLKSEL1 |= (3 << 30);        // Set PCLK_MCPWM - bits 31:30
@@ -61,66 +39,68 @@ void MotorSlaveTask::_init_motor_pwm()
     LPC_MCPWM->MCCON_CLR = 0xE01F1F0F;    // Clear MCCON register
 }
 
-bool MotorSlaveTask::run(void *p) {
-    MotorCommand operation;
-    if (xQueueReceive(getSharedObject(shared_motor_queue), &operation, portMAX_DELAY)) {
-        uint32_t counter_max = _set_frequency(1);
-        _start_counter();
-        _poll_end(counter_max);
-        delay_ms(10000);
+bool MotorTask_t::run(void *p)
+{
+    xMotorCommand_t xMotorCommand;
+    if (xQueueReceive(getSharedObject(shared_MotorQueue),
+                      &xMotorCommand,
+                      portMAX_DELAY))
+    {
+        xPWM_EN.setHigh();
+        uint32_t ulCyclesPerStep = ulSetFrequency(1);
+        vStartCounter();
+        vPollEnd(ulCyclesPerStep, xMotorCommand);
+        xPWM_EN.setLow();
     }
-
     return true;
 }
 
-uint32_t MotorSlaveTask::_set_frequency(uint32_t freq_hz)
+uint32_t MotorTask_t::ulSetFrequency(uint32_t ulFreqHz)
 {
-    uint32_t cnt_freq = sys_clk_ / pclk_divider_; // 6MHz iff 48MHz / 8.
-    uint32_t cnt_setting = (uint32_t) (cnt_freq / (1.0 * steps_per_rot_ * freq_hz) + 0.5);  // Round up.
-    LPC_MCPWM->MCPER0 = cnt_setting; // Set channel 0 limit register
-    LPC_MCPWM->MCPW0 = (uint32_t) cnt_setting / 2.0 + 0.5; // Set channel 0 match register - 50% duty cycle rounded up.
-    return cnt_setting;
+    uint32_t ulCntFreq = ulSysClk / ulPclkDivider;  // 6MHz iff 48MHz / 8
+    uint32_t ulLimitReg = ulCntFreq / (uxStepsPerRot * ulFreqHz) + 0.5;
+    LPC_MCPWM->MCPER0 = ulLimitReg;                 // Setting Limit register
+    LPC_MCPWM->MCPW0 = ulLimitReg / 2.0 + 0.5;      // Setting Match register
+    return ulLimitReg;
 }
 
-
-void MotorSlaveTask::_poll_end(uint32_t counter_max)
+void MotorTask_t::vPollEnd(uint32_t ulCyclesPerStep,
+                           xMotorCommand_t& xMotorCommand)
 {
     // This method triggers the stop condition for the motor controller.
     // Using upper and lower 10% of max counter value to trigger events.
-    bool has_seen_upper_thresh = false;
-    uint32_t upper_thresh = counter_max * 0.9;
-    uint32_t lower_thresh = counter_max * 0.1;
-    int spin_count = 0;
-
+    bool bSeenUpperThresh = false;
+    uint32_t ulUpperThresh = ulCyclesPerStep * 0.9;
+    uint32_t ulLowerThresh = ulCyclesPerStep * 0.1;
+    uint32_t ulStepCount = 0;
+    uint32_t ulStepMax = uxStepsPerRot * xMotorCommand.xRotations;
 
     while(1 == 1)
     {
-        if(LPC_MCPWM->MCTIM0 >= upper_thresh)
+        if(LPC_MCPWM->MCTIM0 >= ulUpperThresh)
         {
-            has_seen_upper_thresh = true;
+            bSeenUpperThresh = true;
         }
-        if(has_seen_upper_thresh && LPC_MCPWM->MCTIM0 <= lower_thresh)
+        if(bSeenUpperThresh && LPC_MCPWM->MCTIM0 <= ulLowerThresh)
         {
-            u0_dbg_printf("spin count: %d\n", spin_count);
-            has_seen_upper_thresh = false;
-            if (spin_count > (steps_per_rot_/2))
+            bSeenUpperThresh = false;
+            if (ulStepCount > ulStepMax)
             {
-                _stop_counter();
+                vStopCounter();
                 break;
             }
-            spin_count++;
+            ulStepCount++;
         }
     }
-
 }
 
-void MotorSlaveTask::_start_counter()
+void MotorTask_t::vStartCounter()
 {
     LPC_MCPWM->MCTIM0 = 0;
     LPC_MCPWM->MCCON_SET = (1 << 0);
 }
 
-void MotorSlaveTask::_stop_counter()
+void MotorTask_t::vStopCounter()
 {
     LPC_MCPWM->MCCON_CLR = 0XE01F1F0F;
     LPC_MCPWM->MCTIM0 = 0;

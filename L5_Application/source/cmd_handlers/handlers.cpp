@@ -46,21 +46,43 @@
 #include "c_tlm_stream.h"
 #include "c_tlm_var.h"
 
+#include "tasks.hpp"
 
 CMD_HANDLER_FUNC(motorHandler)
 {
-    static const char* cMotorErorMsg = "Invalid! Syntax: motor (left|right) <revolutions>";
-    char *rotateDir = NULL;
-    char *rotateAmt = NULL;
+    using namespace team9;
 
-    int num_tokens = cmdParams.tokenize(" ", 2, &rotateDir, &rotateAmt);
+    xMotorCommand_t xMotorCommand;
+    QueueHandle_t xMotorQueue;
+
+    static const char* pcUsageStr = "motor (left|right) <revolutions>";
+
+    char *pcRotateDir = NULL;
+    char *pcRotateAmt = NULL;
+    float xRotations = 0.0;
+
+    int num_tokens = cmdParams.tokenize(" ", 2, &pcRotateDir, &pcRotateAmt);
     if (num_tokens < 2)
     {
-        output.printf("%s\nAt least two args required!\n", cMotorErorMsg);
+        output.printf("Error: At least two args are required\n%s\n", pcUsageStr);
         return false;
     }
-    float n = strtof(rotateAmt,NULL);
-    output.printf("Direction: %s\nNumber of cycles: %f\n\r", rotateDir, n);
+    xRotations = strtof(pcRotateAmt, NULL);
+    if (strcmp(pcRotateDir, "left") == 0) {
+        xMotorCommand.Load(Direction::LEFT, xRotations);
+    }
+    else if (strcmp(pcRotateDir, "right") == 0) {
+        xMotorCommand.Load(Direction::RIGHT, xRotations);
+    }
+    else {
+        output.printf("Error: %s is not a recognized direction\n%s\n",
+                      pcRotateDir, pcUsageStr);
+        return false;
+    }
+    output.printf("Direction: %s\nNumber of cycles: %f\n",
+                  pcRotateDir, pcRotateAmt);
+    xMotorQueue = scheduler_task::getSharedObject(shared_MotorQueue);
+    xQueueSend(xMotorQueue, &xMotorCommand, portMAX_DELAY);
     return true;
 }
 
