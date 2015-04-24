@@ -25,7 +25,8 @@
 
 #include "command_handler.hpp"
 
-
+/// Handler for motor control
+CMD_HANDLER_FUNC(motorHandler);
 
 /// Handler for task list & CPU Information
 CMD_HANDLER_FUNC(taskListHandler);
