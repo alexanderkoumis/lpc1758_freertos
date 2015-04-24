@@ -26,7 +26,8 @@ void MotorTask_t::vInitGPIO()
     delay_ms(1000);
     xPWM_DIR.setAsInput();
     xPWM_DIR.enableOpenDrainMode();
-    xPWM_DIR.setHigh();
+    xPWM_DIR.setLow();
+    delay_ms(1000);
 }
 
 void MotorTask_t::vInitPWM()
@@ -47,9 +48,13 @@ bool MotorTask_t::run(void *p)
                       portMAX_DELAY))
     {
         xPWM_EN.setHigh();
+        delay_ms(10);
+        xPWM_DIR.set(xMotorCommand.eDirection == eDirection_t::LEFT ? true : false);
+        delay_ms(10);
         uint32_t ulCyclesPerStep = ulSetFrequency(1);
         vStartCounter();
         vPollEnd(ulCyclesPerStep, xMotorCommand);
+        xPWM_DIR.setLow();
         xPWM_EN.setLow();
     }
     return true;
@@ -92,6 +97,7 @@ void MotorTask_t::vPollEnd(uint32_t ulCyclesPerStep,
             ulStepCount++;
         }
     }
+    xPWM_DIR.setLow();
 }
 
 void MotorTask_t::vStartCounter()

@@ -69,10 +69,10 @@ CMD_HANDLER_FUNC(motorHandler)
     }
     xRotations = strtof(pcRotateAmt, NULL);
     if (strcmp(pcRotateDir, "left") == 0) {
-        xMotorCommand.Load(Direction::LEFT, xRotations);
+        xMotorCommand.Load(eDirection_t::LEFT, xRotations);
     }
     else if (strcmp(pcRotateDir, "right") == 0) {
-        xMotorCommand.Load(Direction::RIGHT, xRotations);
+        xMotorCommand.Load(eDirection_t::RIGHT, xRotations);
     }
     else {
         output.printf("Error: %s is not a recognized direction\n%s\n",

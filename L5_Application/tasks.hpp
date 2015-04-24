@@ -72,19 +72,19 @@ class terminalTask : public scheduler_task
 namespace team9
 {
 
-enum Direction {LEFT, RIGHT};
+enum eDirection_t {LEFT, RIGHT};
 
 struct xMotorCommand_t
 {
     xMotorCommand_t(void) : eDirection(LEFT), xRotations(0.0) {}
-    xMotorCommand_t(Direction direction, float& rotations) :
+    xMotorCommand_t(eDirection_t direction, float& rotations) :
         eDirection(LEFT), xRotations(rotations) {}
-    void Load(Direction direction, float rotations)
+    void Load(eDirection_t direction, float rotations)
     {
         eDirection = direction;
         xRotations = rotations;
     }
-	Direction eDirection;
+    eDirection_t eDirection;
 	float xRotations;
 };
 
