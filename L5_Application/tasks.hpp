@@ -23,6 +23,8 @@
 #ifndef TASKS_HPP_
 #define TASKS_HPP_
 
+
+
 #include "scheduler_task.hpp"
 #include "soft_timer.hpp"
 #include "command_handler.hpp"
@@ -31,6 +33,9 @@
 
 #include "FreeRTOS.h"
 #include "semphr.h"
+
+#include "gpio.hpp"
+#include "event_groups.h"
 
 
 
@@ -50,11 +55,11 @@ class terminalTask : public scheduler_task
 
     private:
         // Command channels device and input command str
-        typedef struct {
+        typedef struct cmdChan_t{
             CharDev *iodev; ///< The IO channel
             str *cmdstr;    ///< The command string
             bool echo;      ///< If input should be echo'd back
-        } cmdChan_t;
+        };
 
         VECTOR<cmdChan_t> mCmdIface;   ///< Command interfaces
         CommandProcessor mCmdProc;     ///< Command processor
@@ -121,6 +126,50 @@ class wirelessTask : public scheduler_task
         }
 };
 
+namespace team9
+{
 
+struct MotorCommand
+{
+	enum Direction {LEFT, RIGHT};
+	MotorCommand() : direction_(LEFT), rotations_(0) {}
+	MotorCommand(Direction direction, int rotations) : direction_(LEFT), rotations_(rotations) {}
+	Direction direction_;
+	int rotations_;
+};
+
+class MotorMasterTask : public scheduler_task
+{
+    public:
+        MotorMasterTask(EventGroupHandle_t& xMotorEventGroup, uint8_t priority);
+        bool run(void *p);
+    private:
+        void Rotate(MotorCommand motor_command);
+        EventGroupHandle_t pMotorEventGroup;
+};
+
+class MotorSlaveTask : public scheduler_task
+{
+	public:
+		MotorSlaveTask (EventGroupHandle_t& xMotorEventGroup, uint8_t priority);
+		bool run(void *p);
+
+	private:
+		void _poll_end(uint32_t counter_max);
+        uint32_t _set_frequency(uint32_t freq_hz);
+		void _init_motor_pwm();
+		void _init_motor_dir_en();
+		void _stop_counter();
+		void _start_counter();
+
+		EventGroupHandle_t pMotorEventGroup;
+		GPIO pwm_dir_;
+		GPIO pwm_en_;
+        const int pclk_divider_ = 8;
+        const int steps_per_rot_ = 400;
+        unsigned int sys_clk_;
+};
+
+} // namespace team9
 
 #endif /* TASKS_HPP_ */

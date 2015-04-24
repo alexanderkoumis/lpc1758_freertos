@@ -52,6 +52,7 @@ void GPIO::toggle(void)       {   this->read() ? setLow() : setHigh();          
 
 void GPIO::enablePullUp()
 {
+
     volatile uint32_t *pinmode = &(LPC_PINCON->PINMODE0);
     pinmode += (2 * mPortNum);
     *pinmode &= ~(3 << (2*mPinNum));
@@ -68,6 +69,12 @@ void GPIO::disablePullUpPullDown()
     pinmode += (2 * mPortNum);
     *pinmode &= ~(3 << (2*mPinNum));
     *pinmode |=  (2 << (2*mPinNum));
+
+    //	mPortNum = 1;
+    //	mPinNum = 0x000110011;
+    //	mpOurGpio = LPC_GPIO1_BASE;
+    //  pinsel = (uint32_t*)0x4002C002;
+//        *pinsel = *pinsel & 0x11110011
 }
 void GPIO::enableOpenDrainMode(bool openDrain)
 {
