@@ -32,6 +32,7 @@
  * You can add additional IDs here to use addSharedHandle() and getSharedHandle() API
  */
 enum {
+    shared_PixyBlockQueue, ///< Shared handle used to send pixy blocks to bluetooth
     shared_SensorQueue,    ///< Shared handle used by examples (producer and consumer tasks)
     shared_learnSemaphore, ///< Terminal command gives this semaphore to remoteTask (IR sensor task)
 };

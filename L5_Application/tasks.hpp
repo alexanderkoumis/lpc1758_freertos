@@ -31,10 +31,8 @@
 #include "wireless.h"
 #include "char_dev.hpp"
 
-#include "FreeRTOS.h"
-#include "semphr.h"
 
-#include "pixy.hpp"
+
 
 /**
  * Terminal task is our UART0 terminal that handles our commands into the board.
@@ -71,83 +69,64 @@ class terminalTask : public scheduler_task
         bool saveDiskTlm(void);
 };
 
-/**
- * Remote task is the task that monitors the IR remote control signals.
- * It can "learn" remote control codes by typing "learn" into the UART0 terminal.
- * Thereafter, if a user enters a 2-digit number through a remote control, then
- * your function handleUserEntry() is called where you can take an action.
- */
-class remoteTask : public scheduler_task
+namespace team9
 {
+
+class PixyTask_t : public scheduler_task
+{
+    enum eState_t
+    {
+        START,
+        WAITING,
+        NEW_FRAME,
+        READING_NORMAL_FRAME,
+        READING_COLOR_FRAME,
+        DONE
+    };
+
+    struct Block_t
+    {
+        Block_t() : usSignature(0x0000),
+                    usX(0x0000),
+                    usY(0x0000),
+                    usWidth(0x0000),
+                    usHeight(0x0000),
+                    usAngle(0x0000) {}
+        Block_t(uint16_t usSignature_arg,
+                uint16_t usX_arg,
+                uint16_t usY_arg,
+                uint16_t usWidth_arg,
+                uint16_t usHeight_arg,
+                uint16_t usAngle_arg) :
+                    usSignature(usSignature_arg),
+                    usX(usX_arg),
+                    usY(usY_arg),
+                    usWidth(usWidth_arg),
+                    usHeight(usHeight_arg),
+                    usAngle(usAngle_arg) {}
+        uint16_t usSignature;
+        uint16_t usX;
+        uint16_t usY;
+        uint16_t usWidth;
+        uint16_t usHeight;
+        uint16_t usAngle;
+    };
+
     public:
-        remoteTask(uint8_t priority);   ///< Constructor
-        bool init(void);                ///< Inits the task
-        bool regTlm(void);              ///< Registers non-volatile variables
-        bool taskEntry(void);           ///< One time entry function
-        bool run(void *p);              ///< The main loop
-
-    private:
-        /** This function is called when a 2-digit number is decoded */
-        void handleUserEntry(int num);
-        
-        /**
-         * @param code  The IR code
-         * @param num   The matched number 0-9 that mapped the IR code.
-         * @returns true if the code has been successfully mapped to the num
-         */
-        bool getNumberFromCode(uint32_t code, uint32_t& num);
-
-        uint32_t mNumCodes[10];      ///< IR Number codes
-        uint32_t mIrNumber;          ///< Current IR number we're decoding
-        SemaphoreHandle_t mLearnSem; ///< Semaphore to enable IR code learning
-        SoftTimer mIrNumTimer;       ///< Time-out for user entry for 1st and 2nd digit
-};
-
-/**
- * Nordic wireless task to participate in the mesh network and handle retry logic
- * such that packets are resent if an ACK has not been received
- */
-class wirelessTask : public scheduler_task
-{
-    public:
-        wirelessTask(uint8_t priority) :
-            scheduler_task("wireless", 512, priority)
-        {
-            /* Nothing to init */
-        }
-
-        bool run(void *p)
-        {
-            wireless_service(); ///< This is a non-polling function if FreeRTOS is running.
-            return true;
-        }
-};
-
-namespace konix
-{
-
-class pixyTask : public scheduler_task
-{
-	public:
-
-		pixyTask(uint8_t priority) : scheduler_task("pixy", 2048, priority)
-		{
-		}
-		bool init(void)
-		{
-			pPixyPtr.reset(new konix::Pixy);
-			return true;
-		}
-		bool run(void *p)
-		{
-			pPixyPtr->StateMachine();
-			return true;
-		}
+        PixyTask_t(uint8_t priority);
+		bool run(void *p);
 
 	private:
-		std::unique_ptr<konix::Pixy> pPixyPtr;
+        void vStateMachine();
+        uint16_t ReadShort();
+        eState_t eState = START;
+        Block_t xObject;
+        uint16_t usRecv = 0x0000;
+        uint32_t ulTimesSeen = 0;
+        uint32_t ulObjectCount = 0;
+        uint32_t ulImgCount = 0;
 };
 
-}
+} // namespace team9
 
 #endif /* TASKS_HPP_ */
