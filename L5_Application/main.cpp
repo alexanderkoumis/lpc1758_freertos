@@ -1,3 +1,4 @@
+#include "pixy.hpp"
 #include "tasks.hpp"
 
 int main() {
