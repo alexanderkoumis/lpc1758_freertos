@@ -3,108 +3,92 @@
 #include "ssp1.h"
 #include "printf_lib.h"
 #include "shared_handles.h"
+#include "utilities.h"
 
 namespace team9
 {
 
+
 PixyTask_t::PixyTask_t(uint8_t priority) : scheduler_task("pixy", 2048, priority)
 {
+    vPopulateMap();
+    ssp1_set_max_clock(1);
+    delay_ms(64);
     while(LPC_SSP1->SR & (1 << 4));
     LPC_GPIO0->FIOCLR = (1 << 16); // P0[16] as SSP1
-    ssp1_set_max_clock(1);
 }
 
 bool PixyTask_t::run(void *p)
 {
+    if (!bCalibrated)
+    {
+        vCalibrateBoard(4, 4, 50);
+    }
     vStateMachine();
     return true;
 }
 
+void PixyTask_t::vPopulateMap()
+{
+    xStateMap[START] = std::string("START");
+    xStateMap[READING_FRAME] = std::string("READING_FRAME");
+}
+
+void PixyTask_t::vCalibrateBoard(int rows, int cols, int samples)
+{
+    while (ulImgCount < samples)
+    {
+        vStateMachine();
+
+    }
+}
+
 void PixyTask_t::vStateMachine()
 {
+    u0_dbg_printf("Imgcount: %d\tobjecount: %d\tState: %s\n", ulImgCount, ulObjectCount, xStateMap[eState].c_str());
     switch(eState)
     {
         case START:
         {
-          ulTimesSeen = (ReadShort() == 0xaa55) ? ulTimesSeen + 1 : ulTimesSeen;
-          eState = (ulTimesSeen == 2) ? START : WAITING;
-          break;
-        }
-        case WAITING:
-        {
-            switch (ReadShort())
+            while (1)
             {
-                case 0xaa55:
+                ReadShort();
+                if (usRecv == 0xaa55 && usRecvLast == 0xaa55)
                 {
-                    eState = READING_NORMAL_FRAME;
-                    break;
+                    eState = READING_FRAME;
+                    ulObjectCount = 0;
+                    ulImgCount++;
+                    return;
                 }
-                case 0xaa56:
+                else if (usRecv == 0xaa55)
                 {
-                    eState = READING_COLOR_FRAME;
-                    break;
-                }
-                default:
-                {
-                    eState = WAITING;
-                    break;
+                    ReadShort();
+                    if (usRecv == 0xaa55 && usRecvLast == 0xaa55)
+                    {
+                        ulObjectCount++;
+                    }
+                    eState = READING_FRAME;
+                    return;
                 }
             }
             break;
         }
-        case READING_NORMAL_FRAME:
+        case READING_FRAME:
         {
-            usRecv = ReadShort();
-            switch (usRecv)
+            xObject.usChecksum = ReadShort();
+            xObject.usSignature = ReadShort();
+            xObject.usX = ReadShort();
+            xObject.usY = ReadShort();
+            xObject.usWidth = ReadShort();
+            xObject.usHeight = ReadShort();
+            ulObjectCount++;
+            if (xObject.usSignature != 1 && xObject.usSignature != 2)
             {
-                case 0xaa55:
-                {
-                    ulObjectCount = 0;
-                    ulImgCount++;
-                    eState = READING_NORMAL_FRAME;
-                    return;
-                }
-                case 0xaa56:
-                {
-                    ulObjectCount = 0;
-                    ulImgCount++;
-                    eState = READING_COLOR_FRAME;
-                    return;
-                }
-                default:
-                {
-                    // Checksum
-                    ulObjectCount++;
-                    break;
-                }
+                u0_dbg_printf("Yo wtf!!!\n\n\n");
             }
-            xObject = Block_t(ReadShort(), ReadShort(), ReadShort(),
-                              ReadShort(), ReadShort(), ReadShort());
-            eState = DONE;
+            xObject.vClear();
+            eState = START;
             break;
-        }
-        case READING_COLOR_FRAME:
-        {
-            ReadShort(); // checksum
-            xObject = Block_t(ReadShort(), ReadShort(), ReadShort(),
-                              ReadShort(), ReadShort(), ReadShort());
-            eState = DONE;
-            break;
-        }
-        case DONE:
-        {
-          u0_dbg_printf("Image #%d - Block #%d\n"
-                        "  Signature   : %02d\n"
-                        "  Coordinates : [%02d x %02d]\n"
-                        "  Size        : [%02d x %02d]\n"
-                        "  Angle       : %02d\n",
-                        ulImgCount, ulObjectCount,
-                        xObject.usSignature,
-                        xObject.usX, xObject.usY,
-                        xObject.usWidth, xObject.usHeight,
-                        xObject.usAngle);
-          eState = WAITING;
-          break;
         }
         default:
         {
@@ -112,12 +96,29 @@ void PixyTask_t::vStateMachine()
             break;
         }
     }
-
 }
 
-__inline uint16_t PixyTask_t::ReadShort() {
-    uint8_t recv_byte = ssp1_exchange_byte(0x00);
-    return ((ssp1_exchange_byte(0x00) << 8) | (0x00 | recv_byte));
+void PixyTask_t::vPrintInfo(Block_t& xObjectBlock)
+{
+    u0_dbg_printf("Image #%d - Block #%d\n"
+                  "  Checksum    : %02x\n"
+                  "  Signature   : %02x\n"
+                  "  Coordinates : [%02d x %02d]\n"
+                  "  Size        : [%02d x %02d]\n",
+                  ulImgCount, ulObjectCount,
+                  xObjectBlock.usChecksum,
+                  xObjectBlock.usSignature,
+                  xObjectBlock.usX, xObject.usY,
+                  xObjectBlock.usWidth, xObject.usHeight);
+}
+
+
+__inline uint16_t PixyTask_t::ReadShort()
+{
+    usRecvLast = usRecv;
+    uint16_t usResponse = ssp1_exchange_byte(0x5a);
+    usRecv = ssp1_exchange_byte(0x5a) | (usResponse << 8);
+    return usRecv;
 }
 
 } // namespace team9

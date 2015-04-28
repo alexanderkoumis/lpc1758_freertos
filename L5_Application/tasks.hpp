@@ -23,7 +23,7 @@
 #ifndef TASKS_HPP_
 #define TASKS_HPP_
 
-#include <memory>
+#include <map>
 
 #include "scheduler_task.hpp"
 #include "soft_timer.hpp"
@@ -77,39 +77,48 @@ class PixyTask_t : public scheduler_task
     enum eState_t
     {
         START,
-        WAITING,
-        NEW_FRAME,
-        READING_NORMAL_FRAME,
-        READING_COLOR_FRAME,
-        DONE
+        READING_FRAME
     };
 
     struct Block_t
     {
-        Block_t() : usSignature(0x0000),
-                    usX(0x0000),
-                    usY(0x0000),
-                    usWidth(0x0000),
-                    usHeight(0x0000),
-                    usAngle(0x0000) {}
-        Block_t(uint16_t usSignature_arg,
-                uint16_t usX_arg,
-                uint16_t usY_arg,
-                uint16_t usWidth_arg,
-                uint16_t usHeight_arg,
-                uint16_t usAngle_arg) :
-                    usSignature(usSignature_arg),
-                    usX(usX_arg),
-                    usY(usY_arg),
-                    usWidth(usWidth_arg),
-                    usHeight(usHeight_arg),
-                    usAngle(usAngle_arg) {}
+        uint16_t usChecksum;
         uint16_t usSignature;
         uint16_t usX;
         uint16_t usY;
         uint16_t usWidth;
         uint16_t usHeight;
-        uint16_t usAngle;
+
+        Block_t() :
+                usChecksum(0x0000),
+                usSignature(0x0000),
+                usX(0x0000),
+                usY(0x0000),
+                usWidth(0x0000),
+                usHeight(0x0000) {}
+
+        Block_t(uint16_t usChecksum_arg,
+                uint16_t usSignature_arg,
+                uint16_t usX_arg,
+                uint16_t usY_arg,
+                uint16_t usWidth_arg,
+                uint16_t usHeight_arg) :
+                    usChecksum(usChecksum_arg),
+                    usSignature(usSignature_arg),
+                    usX(usX_arg),
+                    usY(usY_arg),
+                    usWidth(usWidth_arg),
+                    usHeight(usHeight_arg) {}
+
+        void vClear()
+        {
+            usChecksum = 0x0000;
+            usSignature = 0x0000;
+            usX = 0x0000;
+            usY = 0x0000;
+            usWidth = 0x0000;
+            usHeight = 0x0000;
+        }
     };
 
     public:
@@ -117,11 +126,18 @@ class PixyTask_t : public scheduler_task
 		bool run(void *p);
 
 	private:
+		void vPopulateMap();
         void vStateMachine();
+		void vCalibrateBoard(int rows, int cols, int samples);
+        void vPrintInfo(Block_t& xObject);
+        std::map<eState_t, std::string> xStateMap;
+
         uint16_t ReadShort();
         eState_t eState = START;
         Block_t xObject;
+        bool bCalibrated = false;
         uint16_t usRecv = 0x0000;
+        uint16_t usRecvLast = 0x0000;
         uint32_t ulTimesSeen = 0;
         uint32_t ulObjectCount = 0;
         uint32_t ulImgCount = 0;
