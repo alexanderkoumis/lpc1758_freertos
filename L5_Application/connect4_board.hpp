@@ -46,9 +46,8 @@ class Connect4Board_t
             {
                 if (xCalibChip.signature == GREEN)
                 {
-
-                    static uint32_t ulRowsHalf = xCalibParams.ulCamRows / 2;
-                    static uint32_t ulColsHalf = xCalibParams.ulCamCols / 2;
+                    uint32_t ulRowsHalf = xCalibParams.ulCamRows / 2;
+                    uint32_t ulColsHalf = xCalibParams.ulCamCols / 2;
 
                     if (xCalibChip.x < 0 || xCalibChip.y < 0 ||
                         xCalibChip.x >= xCalibParams.ulCamRows ||

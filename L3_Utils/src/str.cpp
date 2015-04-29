@@ -782,7 +782,7 @@ bool str::isInt() const
     return strIsAnInt;
 }
 
-unsigned int str::checksum_Get()
+unsigned int str::usChecksum_Get()
 {
     int chkSum = 0;
     const int ourLen = getLen();
@@ -792,33 +792,33 @@ unsigned int str::checksum_Get()
     return chkSum;
 }
 
-void str::checksum_Append()
+void str::usChecksum_Append()
 {
-    const unsigned int chksum = checksum_Get();
+    const unsigned int chksum = usChecksum_Get();
     append(":");
     appendAsHex(chksum);
 }
 
-void str::checksum_Remove()
+void str::usChecksum_Remove()
 {
     eraseAllAfter(lastIndexOf(":"));
 }
 
-bool str::checksum_Verify()
+bool str::usChecksum_Verify()
 {
-    bool checksumIsValid = false;
-    const int checkSumIndex = lastIndexOf(":");
+    bool usChecksumIsValid = false;
+    const int usChecksumIndex = lastIndexOf(":");
 
-    if(mInvalidIndex != checkSumIndex)
+    if(mInvalidIndex != usChecksumIndex)
     {
-        mpStr[checkSumIndex] = '\0';
-        const unsigned int actualChecksum = hexStrDigitsToInt(mpStr+checkSumIndex+1);
-        const unsigned int expectedChecksum = checksum_Get();
-        checksumIsValid = (actualChecksum == expectedChecksum);
-        mpStr[checkSumIndex] = ':';
+        mpStr[usChecksumIndex] = '\0';
+        const unsigned int actualusChecksum = hexStrDigitsToInt(mpStr+usChecksumIndex+1);
+        const unsigned int expectedusChecksum = usChecksum_Get();
+        usChecksumIsValid = (actualusChecksum == expectedusChecksum);
+        mpStr[usChecksumIndex] = ':';
     }
 
-    return checksumIsValid;
+    return usChecksumIsValid;
 }
 
 

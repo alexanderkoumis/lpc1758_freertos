@@ -2,6 +2,8 @@
 #define PIXY_HPP
 
 #include <map>
+#include <string>
+#include <sstream>
 #include <memory>
 #include <vector>
 
@@ -17,9 +19,10 @@ class Pixy
     public:
         enum SystemState_t {CAM_INIT, CALIB, RUN, ERROR} eSystemState;
         enum BlockType_t {NORMAL, COLOR};
+
         Pixy() : eSystemState(CAM_INIT)
         {
-            cmu::init();
+            cmu::vInit();
         }
 
         void vPopulateMap()
@@ -29,13 +32,13 @@ class Pixy
             xStateMap[RUN] = std::string("RUN");
             xStateMap[ERROR] = std::string("ERROR");
         }
+
         void vStateMachine()
         {
             switch(eSystemState)
             {
                 case CAM_INIT:
                 {
-                    while (!cmu::getStart());
                     team9::Connect4Board_t::CalibParams_t xCalibParams;
                     xCalibParams.ulCamCols = 640;
                     xCalibParams.ulCamRows = 480;
@@ -47,16 +50,40 @@ class Pixy
                 }
                 case CALIB:
                 {
-                    cmu::reallyGetBlocks(1000, vBlocks);
-                    if (pConnect4Ptr->vSampleCalibrationChips(vBlocks))
+                    std::vector<cmu::PixyBlock> vPixyBlocks;
+                    cmu::vReallyGetBlocks(1000, vPixyBlocks);
+                    size_t init_size = vPixyBlocks.size();
+                    int counter = 0;
+                    std::ostringstream oss;
+                    for (auto& block : vPixyBlocks)
                     {
-                        eSystemState = CALIB;
+                        if (block.signature > 3)
+                        {
+                            break;
+                        }
+                        else if (counter++ == 0)
+                        {
+                            oss << block.signature;
+                        }
+                        else
+                        {
+                            oss << " " << block.signature;
+                        }
                     }
-                    else
-                    {
-                        pConnect4Ptr->vCalibrate();
-                        eSystemState = RUN;
-                    }
+                    u0_dbg_printf("Expected: init_size: %d\tReceived: %d [%s]\n", init_size, counter, oss.str().c_str());
+                    oss.str("");
+                    oss.clear();
+                    vPixyBlocks.clear();
+                    eSystemState = CALIB;
+//                    if (pConnect4Ptr->vSampleCalibrationChips(vBlocks))
+//                    {
+//                        eSystemState = CALIB;
+//                    }
+//                    else
+//                    {
+//                        pConnect4Ptr->vCalibrate();
+//                        eSystemState = RUN;
+//                    }
                     break;
                 }
                 case RUN:
@@ -70,10 +97,11 @@ class Pixy
                 }
             }
         }
+
     private:
         std::unique_ptr<team9::Connect4Board_t> pConnect4Ptr;
         std::map<SystemState_t, std::string> xStateMap;
-        std::vector<cmu::PixyBlock> vBlocks;
+//        std::vector<cmu::PixyBlock> vBlocks;
 };
 
 }

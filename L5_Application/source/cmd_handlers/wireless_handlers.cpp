@@ -126,7 +126,7 @@ static CMD_HANDLER_FUNC(wsFileTxHandler)
 
     char c = 0;
     char buffer[512];
-    int expectedChecksum = 0;
+    int expectedusChecksum = 0;
     unsigned int bytesRead = 0;
     unsigned int fileOffset = 0;
     unsigned int retries = 0;
@@ -147,18 +147,18 @@ static CMD_HANDLER_FUNC(wsFileTxHandler)
         n.printf("file buffer 0 %i\n", bytesRead);
         n.flush();
 
-        expectedChecksum = 0;
+        expectedusChecksum = 0;
         for (unsigned int i=0; i < bytesRead; i++) {
             n.putChar(buffer[i]);
-            expectedChecksum += buffer[i];
+            expectedusChecksum += buffer[i];
         }
         n.flush();
 
-        // Confirm the checksum: response should be something like "Checksum: 123"
+        // Confirm the usChecksum: response should be something like "usChecksum: 123"
         n.gets((char*) response(), response.getCapacity(), timeout);
         response.eraseFirstWords(1);
-        if ( (int)response != expectedChecksum) {
-            output.printf("ERROR: Checksum Expected %i Actual %i\n", expectedChecksum, (int) response);
+        if ( (int)response != expectedusChecksum) {
+            output.printf("ERROR: usChecksum Expected %i Actual %i\n", expectedusChecksum, (int) response);
             doRetry();
         }
 

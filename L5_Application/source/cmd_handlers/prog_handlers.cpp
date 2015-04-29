@@ -77,7 +77,7 @@ CMD_HANDLER_FUNC(getFileHandler)
     {
         int offset = 0;
         int numBytes = 0;
-        int checksum = 0;
+        int usChecksum = 0;
         char c = 0;
 
         cmdParams.scanf("%*s %i %i", &offset, &numBytes);
@@ -94,10 +94,10 @@ CMD_HANDLER_FUNC(getFileHandler)
             }
 
             spBuffer[i] = c;
-            checksum += c;
+            usChecksum += c;
         }
 
-        output.printf("Checksum %i\n", checksum);
+        output.printf("usChecksum %i\n", usChecksum);
     }
     else {
         return false;

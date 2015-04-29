@@ -345,12 +345,12 @@ class str
 
 
         /**
-         * @{ \name Checksum Functions
+         * @{ \name usChecksum Functions
          */
-        unsigned int checksum_Get(); ///< Get integer value of XOR checksum of this string
-        void checksum_Append();      ///< Appends checksum characters: Ex: 123 becomes: 123:0A
-        void checksum_Remove();      ///< Removes checksum characters: Ex: 123:0A becomes 123
-        bool checksum_Verify();      ///< @returns TRUE if for example: actual checksum 0A matches calculated 0A of string "123"
+        unsigned int usChecksum_Get(); ///< Get integer value of XOR usChecksum of this string
+        void usChecksum_Append();      ///< Appends usChecksum characters: Ex: 123 becomes: 123:0A
+        void usChecksum_Remove();      ///< Removes usChecksum characters: Ex: 123:0A becomes 123
+        bool usChecksum_Verify();      ///< @returns TRUE if for example: actual usChecksum 0A matches calculated 0A of string "123"
         /** @} */
 
 

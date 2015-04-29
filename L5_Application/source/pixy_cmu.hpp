@@ -4,6 +4,7 @@
 namespace cmu
 {
 
+
 struct PixyBlock
 {
   uint16_t signature;
@@ -14,10 +15,10 @@ struct PixyBlock
   uint16_t angle; // angle is only available for color coded blocks
 };
 
-void init();
+void vInit();
 int getStart(void);
-void reallyGetBlocks(int num_blocks, std::vector<PixyBlock>& blocks);
-uint16_t getBlocks(uint16_t maxBlocks);
+void vReallyGetBlocks(int num_blocks, std::vector<PixyBlock>& blocks);
+uint16_t usGetBlocks(uint16_t maxBlocks);
 void vPrintInfo(cmu::PixyBlock& xPixyBlock);
 
 

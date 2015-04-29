@@ -83,48 +83,11 @@ namespace team9
 
 class PixyTask_t : public scheduler_task
 {
-
-
-    struct Block_t
-    {
-        uint16_t usSignature;
-        uint16_t usX;
-        uint16_t usY;
-        uint16_t usWidth;
-        uint16_t usHeight;
-
-        Block_t(uint16_t usSignature_arg,
-                uint16_t usX_arg,
-                uint16_t usY_arg,
-                uint16_t usWidth_arg,
-                uint16_t usHeight_arg) :
-                    usSignature(usSignature_arg),
-                    usX(usX_arg),
-                    usY(usY_arg),
-                    usWidth(
-                            usWidth_arg),
-                    usHeight(usHeight_arg) {}
-
-        void vClear()
-        {
-            usSignature = 0x0000;
-            usX = 0x0000;
-            usY = 0x0000;
-            usWidth = 0x0000;
-            usHeight = 0x0000;
-        }
-
-        uint16_t usSum()
-        {
-            return usSignature + usX + usY + usWidth + usHeight;
-        }
-    };
-
-    public:
+   public:
         PixyTask_t(uint8_t priority) : scheduler_task("pixy", 2048, priority)
         {
             ssp1_set_max_clock(1);
-            delay_ms(64);
+            delay_ms(128);
             while(LPC_SSP1->SR & (1 << 4));
             LPC_GPIO0->FIOCLR = (1 << 16); // P0[16] as SSP1
             pPixyPtr.reset(new team9::Pixy);
