@@ -38,17 +38,19 @@ class Connect4Board_t
 
         Connect4Board_t(CalibParams_t& xCalibParams_arg) :
             xCalibParams(xCalibParams_arg)
-        {}
+        {
+            ulColsHalf = xCalibParams.ulCamCols / 2;
+            ulRowsHalf = xCalibParams.ulCamRows / 2;
+        }
 
+//        bool vSampleCalibrationChips(std::vector<cmu::PixyBlock2>& xCalibChips)
         bool vSampleCalibrationChips(std::vector<cmu::PixyBlock>& xCalibChips)
         {
             for (auto& xCalibChip : xCalibChips)
             {
                 if (xCalibChip.signature == GREEN)
                 {
-                    uint32_t ulRowsHalf = xCalibParams.ulCamRows / 2;
-                    uint32_t ulColsHalf = xCalibParams.ulCamCols / 2;
-
+                    usGreenChips++;
                     if (xCalibChip.x < 0 || xCalibChip.y < 0 ||
                         xCalibChip.x >= xCalibParams.ulCamRows ||
                         xCalibChip.y >= xCalibParams.ulCamCols)
@@ -59,28 +61,24 @@ class Connect4Board_t
                     else if (xCalibChip.x < ulColsHalf &&
                              xCalibChip.y < ulRowsHalf)
                     {
-                        u0_dbg_printf("1    %d %d / %d %d\n", xCalibChip.x, xCalibChip.y, ulColsHalf, ulRowsHalf);
                         xBoardCorners.eTopLeft.usX += xCalibChip.x;
                         xBoardCorners.eTopLeft.usY += xCalibChip.y;
                     }
                     else if (xCalibChip.x < ulColsHalf &&
                              xCalibChip.y > ulRowsHalf)
                     {
-                        u0_dbg_printf(" 2\n");
                         xBoardCorners.eBottomLeft.usX += xCalibChip.x;
                         xBoardCorners.eBottomLeft.usY += xCalibChip.y;
                     }
                     else if (xCalibChip.x > ulColsHalf &&
                              xCalibChip.y < ulRowsHalf)
                     {
-                        u0_dbg_printf("  3\n");
                         xBoardCorners.eTopRight.usX += xCalibChip.x;
                         xBoardCorners.eTopRight.usY += xCalibChip.y;
                     }
                     else if (xCalibChip.x > ulColsHalf &&
                              xCalibChip.y > ulRowsHalf)
                     {
-                        u0_dbg_printf("   4\n");
                         xBoardCorners.eBottomRight.usX += xCalibChip.x;
                         xBoardCorners.eBottomRight.usY += xCalibChip.y;
                     }
@@ -90,19 +88,23 @@ class Connect4Board_t
                     }
                 }
             }
-            return (usCalibPic++ == xCalibParams.ulNumFrames) ? false : true;
+            if (usGreenChips > 1000)
+            {
+                return false;
+            }
+            return true;
         }
 
         void vCalibrate()
         {
-            xBoardCorners.eTopLeft.usX /= usCalibPic;
-            xBoardCorners.eTopLeft.usY /= usCalibPic;
-            xBoardCorners.eTopRight.usX /= usCalibPic;
-            xBoardCorners.eTopRight.usY /= usCalibPic;
-            xBoardCorners.eBottomLeft.usX /= usCalibPic;
-            xBoardCorners.eBottomLeft.usY /= usCalibPic;
-            xBoardCorners.eBottomRight.usX /= usCalibPic;
-            xBoardCorners.eBottomRight.usY /= usCalibPic;
+            xBoardCorners.eTopLeft.usX /= usGreenChips;
+            xBoardCorners.eTopLeft.usY /= usGreenChips;
+            xBoardCorners.eTopRight.usX /= usGreenChips;
+            xBoardCorners.eTopRight.usY /= usGreenChips;
+            xBoardCorners.eBottomLeft.usX /= usGreenChips;
+            xBoardCorners.eBottomLeft.usY /= usGreenChips;
+            xBoardCorners.eBottomRight.usX /= usGreenChips;
+            xBoardCorners.eBottomRight.usY /= usGreenChips;
             u0_dbg_printf("Estimated corners:\n"
                           "TL: [%dx%d]\tTR: [%dx%d]\n"
                           "BL: [%dx%d]\tBR: [%dx%d]\n",
@@ -114,10 +116,15 @@ class Connect4Board_t
                           xBoardCorners.eBottomLeft.usY,
                           xBoardCorners.eBottomRight.usX,
                           xBoardCorners.eBottomRight.usY);
+            usGreenChips = 0;
         }
 
     private:
         uint32_t usCalibPic = 0;
+        uint32_t usGreenChips = 0;
+        uint32_t ulRowsHalf = 0;
+        uint32_t ulColsHalf = 0;
+
 };
 
 }

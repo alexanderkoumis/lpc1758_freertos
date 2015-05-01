@@ -1,13 +1,15 @@
 #ifndef PIXY_HPP
 #define PIXY_HPP
 
-#include <map>
 #include <string>
+#include <vector>
+#include <map>
 #include <sstream>
 #include <memory>
-#include <vector>
+#include <functional>
 
 #include "L5_Application/source/pixy_cmu.hpp"
+//#include "L5_Application/source/pixy_cmu2.hpp"
 
 #include "connect4_board.hpp"
 
@@ -22,7 +24,8 @@ class Pixy
 
         Pixy() : eSystemState(CAM_INIT)
         {
-            cmu::vInit();
+            void vInit();
+//            pPixyCMU.reset(new cmu::PixyCMU_t(128));
         }
 
         void vPopulateMap()
@@ -50,40 +53,13 @@ class Pixy
                 }
                 case CALIB:
                 {
+//                    std::vector<cmu::PixyBlock2> vPixyBlocks;
                     std::vector<cmu::PixyBlock> vPixyBlocks;
-                    cmu::vReallyGetBlocks(1000, vPixyBlocks);
-                    size_t init_size = vPixyBlocks.size();
-                    int counter = 0;
-                    std::ostringstream oss;
-                    for (auto& block : vPixyBlocks)
-                    {
-                        if (block.signature > 3)
-                        {
-                            break;
-                        }
-                        else if (counter++ == 0)
-                        {
-                            oss << block.signature;
-                        }
-                        else
-                        {
-                            oss << " " << block.signature;
-                        }
-                    }
-                    u0_dbg_printf("Expected: init_size: %d\tReceived: %d [%s]\n", init_size, counter, oss.str().c_str());
-                    oss.str("");
-                    oss.clear();
+//                    pPixyCMU->vGetBlocks(vPixyBlocks);
+                    cmu::usGetBlocks(1024, vPixyBlocks);
+                    pConnect4Ptr->vSampleCalibrationChips(vPixyBlocks);
                     vPixyBlocks.clear();
                     eSystemState = CALIB;
-//                    if (pConnect4Ptr->vSampleCalibrationChips(vBlocks))
-//                    {
-//                        eSystemState = CALIB;
-//                    }
-//                    else
-//                    {
-//                        pConnect4Ptr->vCalibrate();
-//                        eSystemState = RUN;
-//                    }
                     break;
                 }
                 case RUN:
@@ -102,6 +78,11 @@ class Pixy
         std::unique_ptr<team9::Connect4Board_t> pConnect4Ptr;
         std::map<SystemState_t, std::string> xStateMap;
 //        std::vector<cmu::PixyBlock> vBlocks;
+
+//    std::unique_ptr<cmu::PixyCMU_t> pPixyCMU;
+
+
+
 };
 
 }
