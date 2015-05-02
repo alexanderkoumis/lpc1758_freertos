@@ -16,12 +16,10 @@
  *          p r e e t . w i k i @ g m a i l . c o m
  */
 
-/**
- * @file
- * @brief Contains FreeRTOS Tasks
- */
 #ifndef TASKS_HPP_
 #define TASKS_HPP_
+
+#include <memory>
 
 #include "scheduler_task.hpp"
 #include "soft_timer.hpp"
@@ -32,14 +30,8 @@
 #include "FreeRTOS.h"
 #include "semphr.h"
 
+#include "pixy.hpp"
 
-
-/**
- * Terminal task is our UART0 terminal that handles our commands into the board.
- * This also saves and restores the "disk" telemetry.  Disk telemetry variables
- * are automatically saved and restored across power-cycles to help us preserve
- * any non-volatile information.
- */
 class terminalTask : public scheduler_task
 {
     public:
@@ -69,58 +61,28 @@ class terminalTask : public scheduler_task
         bool saveDiskTlm(void);
 };
 
-/**
- * Remote task is the task that monitors the IR remote control signals.
- * It can "learn" remote control codes by typing "learn" into the UART0 terminal.
- * Thereafter, if a user enters a 2-digit number through a remote control, then
- * your function handleUserEntry() is called where you can take an action.
- */
-class remoteTask : public scheduler_task
+namespace team9
+{
+using namespace pixy;
+
+class PixyTask_t : public scheduler_task
 {
     public:
-        remoteTask(uint8_t priority);   ///< Constructor
-        bool init(void);                ///< Inits the task
-        bool regTlm(void);              ///< Registers non-volatile variables
-        bool taskEntry(void);           ///< One time entry function
-        bool run(void *p);              ///< The main loop
-
-    private:
-        /** This function is called when a 2-digit number is decoded */
-        void handleUserEntry(int num);
-        
-        /**
-         * @param code  The IR code
-         * @param num   The matched number 0-9 that mapped the IR code.
-         * @returns true if the code has been successfully mapped to the num
-         */
-        bool getNumberFromCode(uint32_t code, uint32_t& num);
-
-        uint32_t mNumCodes[10];      ///< IR Number codes
-        uint32_t mIrNumber;          ///< Current IR number we're decoding
-        SemaphoreHandle_t mLearnSem; ///< Semaphore to enable IR code learning
-        SoftTimer mIrNumTimer;       ///< Time-out for user entry for 1st and 2nd digit
-};
-
-/**
- * Nordic wireless task to participate in the mesh network and handle retry logic
- * such that packets are resent if an ACK has not been received
- */
-class wirelessTask : public scheduler_task
-{
-    public:
-        wirelessTask(uint8_t priority) :
-            scheduler_task("wireless", 512, priority)
-        {
-            /* Nothing to init */
-        }
+        PixyTask_t (uint8_t ucPriority) :
+				scheduler_task("pixy", 2048, ucPriority),
+				pPixy(new Pixy_t(MAX_BLOCKS, GREEN, 64))
+		{}
 
         bool run(void *p)
         {
-            wireless_service(); ///< This is a non-polling function if FreeRTOS is running.
+        	pPixy->vAction();
             return true;
         }
+
+    private:
+        std::unique_ptr<Pixy_t> pPixy;
 };
 
-
+} // namespace team9
 
 #endif /* TASKS_HPP_ */
