@@ -43,9 +43,9 @@ class Pixy
                 case CAM_INIT:
                 {
                     team9::Connect4Board_t::CalibParams_t xCalibParams;
-                    xCalibParams.ulCamCols = 640;
-                    xCalibParams.ulCamRows = 480;
-                    xCalibParams.ulNumFrames = 30000;
+                    xCalibParams.ulCamCols = 320;
+                    xCalibParams.ulCamRows = 200;
+                    xCalibParams.ulNumFrames = 1000;
                     xCalibParams.eChipColor = GREEN;
                     pConnect4Ptr.reset(new team9::Connect4Board_t(xCalibParams));
                     eSystemState = CALIB;
@@ -56,8 +56,13 @@ class Pixy
 //                    std::vector<cmu::PixyBlock2> vPixyBlocks;
                     std::vector<cmu::PixyBlock> vPixyBlocks;
 //                    pPixyCMU->vGetBlocks(vPixyBlocks);
-                    cmu::usGetBlocks(1024, vPixyBlocks);
-                    pConnect4Ptr->vSampleCalibrationChips(vPixyBlocks);
+                    cmu::usGetBlocks(64, vPixyBlocks);
+                    while (pConnect4Ptr->vSampleCalibrationChips((vPixyBlocks)))
+                    {
+						u0_dbg_printf("Frame count: %d\n", pConnect4Ptr->ulFrames);
+                    }
+                     pConnect4Ptr->vCalibrate();
+
                     vPixyBlocks.clear();
                     eSystemState = CALIB;
                     break;
