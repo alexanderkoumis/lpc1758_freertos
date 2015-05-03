@@ -14,103 +14,102 @@ namespace pixy
 
 class PixyBrain_t
 {
-	public:
+public:
 
-		PixyBrain_t(Dims_t xCamDims_arg, ChipColor_t eColorCalib_arg,
-					uint32_t ulCalibFrames_arg) :
-			xCamDims(xCamDims_arg),
-			xCamDimsHalf(xCamDims / 2),
-			eColorCalib(eColorCalib_arg),
-			ulCalibFrames(ulCalibFrames_arg)
-		{
-		}
+    PixyBrain_t(Dims_t xCamDims_arg, ChipColor_t eColorCalib_arg,
+                uint32_t ulCalibFrames_arg) :
+        xCamDims(xCamDims_arg),
+        xCamDimsHalf(xCamDims / 2),
+        eColorCalib(eColorCalib_arg),
+        ulCalibFrames(ulCalibFrames_arg)
+    {
+    }
 
-		bool vCalibBoard(PixyEyes_t* pPixyEyes)
-		{
-			uint32_t ulCurrFrame = 0;
+    bool vCalibBoard(PixyEyes_t* pPixyEyes)
+    {
+        std::vector<Block_t> xBlocks;
+        uint32_t ulCurrFrame = 0;
 
 
-			while (ulCurrFrame < ulCalibFrames)
-			{
-				std::vector<Block_t> xBlocks;
-				uint32_t ulNumBlocks = pPixyEyes->ulSeenBlocks(xBlocks);
-				if (ulNumBlocks)
-				{
-					for (auto& xBlock : xBlocks)
-					{
-						if (xBlock.usSignature == eColorCalib)
-						{
-							Quadrant_t xQuad = xComputeQuadrant(xBlock.xPoint);
-							if (xQuad == ERROR)
-							{
-								std::cout << sLastError << std::endl;
-							}
-							else
-							{
-								xCorners.vAccumQuadrant(xQuad, xBlock.xPoint);
-							}
-						}
-					}
-				}
-			}
+        while (1)
+        {
+        uint32_t ulNumBlocks = pPixyEyes->ulSeenBlocks(xBlocks);
+        for (auto& xBlock : xBlocks)
+        {
+            std::cout << xBlock << std::endl;
+//            if (xBlock.usSignature == eColorCalib)
+//            {
+//                Quadrant_t xQuad = xComputeQuadrant(xBlock.xPoint);
+//                if (xQuad == ERROR)
+//                {
+//                    std::cout << sLastError << std::endl;
+//                }
+//                else
+//                {
+//                    xCorners.vAccumQuadrant(xQuad, xBlock.xPoint);
+//                }
+//            }
+        }
+        xBlocks.clear();
+        }
+        if (xCorners.vComputeAverage())
+        {
+            return true;
+        }
+        sLastError = "Poorly calibrated corners";
+        return false;
+    }
 
-			if (xCorners.vComputeAverage())
-			{
-				return true;
-			}
-			sLastError = "Poorly calibrated corners";
-			return false;
-		}
+    std::string sGetLastError()
+    {
+        return sLastError;
+    }
 
-		std::string sGetLastError()
-		{
-			return sLastError;
-		}
+    Corners_t xGetCorners()
+    {
+        return xCorners;
+    }
 
-		Corners_t xGetCorners()
-		{
-			return xCorners;
-		}
+private:
 
-	private:
-		std::string sLastError;
-		Dims_t xCamDims;
-		Dims_t xCamDimsHalf;
-		Corners_t xCorners;
-		ChipColor_t eColorCalib;
-		uint32_t ulCalibFrames;
+    std::string sLastError;
+    Dims_t xCamDims;
+    Dims_t xCamDimsHalf;
+    Corners_t xCorners;
+    ChipColor_t eColorCalib;
+    uint32_t ulCalibFrames;
 
-		__inline Quadrant_t xComputeQuadrant(Point_t& xPoint)
-		{
-			if (xPoint.usX < 0 || xPoint.usY < 0 ||
-				xPoint.usX >= xCamDims.usCols || xPoint.usY >= xCamDims.usRows)
-			{
-				sLastError = "Chip out of bounds: " + xPoint.sStr();
-				return ERROR;
-			}
-			else if (xPoint.usX <= xCamDimsHalf.usCols &&
-			         xPoint.usY <= xCamDimsHalf.usRows)
-			{
-				return TOP_LEFT;
-			}
-			else if (xPoint.usX  > xCamDimsHalf.usCols &&
-			         xPoint.usY <= xCamDimsHalf.usRows)
-			{
-				return TOP_LEFT;
-			}
-			else if (xPoint.usX <= xCamDimsHalf.usCols &&
-			         xPoint.usY  > xCamDimsHalf.usRows)
-			{
-				return TOP_LEFT;
-			}
-			else if (xPoint.usX <= xCamDimsHalf.usCols &&
-			         xPoint.usY  > xCamDimsHalf.usRows)
-			{
-				return TOP_LEFT;
-			}
-			sLastError = "Point was not in any quadrant or out of bounds??";
-			return ERROR;
-		}
+    __inline Quadrant_t xComputeQuadrant(Point_t& xPoint)
+    {
+        if (xPoint.usX < 0 || xPoint.usY < 0 ||
+                xPoint.usX >= xCamDims.usCols || xPoint.usY >= xCamDims.usRows)
+        {
+            sLastError = "Chip out of bounds: " + xPoint.sStr();
+            return ERROR;
+        }
+        else if (xPoint.usX <= xCamDimsHalf.usCols &&
+                xPoint.usY <= xCamDimsHalf.usRows)
+        {
+            return TOP_LEFT;
+        }
+        else if (xPoint.usX  > xCamDimsHalf.usCols &&
+                xPoint.usY <= xCamDimsHalf.usRows)
+        {
+            return TOP_LEFT;
+        }
+        else if (xPoint.usX <= xCamDimsHalf.usCols &&
+                xPoint.usY  > xCamDimsHalf.usRows)
+        {
+            return TOP_LEFT;
+        }
+        else if (xPoint.usX <= xCamDimsHalf.usCols &&
+                xPoint.usY  > xCamDimsHalf.usRows)
+        {
+            return TOP_LEFT;
+        }
+        sLastError = "Point was not in any quadrant or out of bounds??";
+        return ERROR;
+    }
 
 };
 

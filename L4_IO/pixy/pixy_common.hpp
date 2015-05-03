@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <string>
+#include <map>
 #include <sstream>
 #include <tuple>
 
@@ -86,11 +87,6 @@ struct Corners_t
 		pCornerCount[BOTTOM_RIGHT] = 0;
 	}
 
-	bool operator ! ()
-	{
-
-	}
-
 	friend std::ostream& operator << (std::ostream& xLHS,
 									  const Corners_t& xRHS)
 	{
@@ -113,8 +109,8 @@ struct Corners_t
 		pCorners[BOTTOM_LEFT] /= pCornerCount[BOTTOM_LEFT];
 		pCorners[BOTTOM_RIGHT] /= pCornerCount[BOTTOM_RIGHT];
 
-		return pCorners[TOP_LEFT]() && pCorners[TOP_RIGHT]() &&
-			   pCorners[BOTTOM_LEFT]() && pCorners[BOTTOM_RIGHT]();
+		return pCorners[TOP_LEFT]() || pCorners[TOP_RIGHT]() ||
+			   pCorners[BOTTOM_LEFT]() || pCorners[BOTTOM_RIGHT]();
 	}
 
 };
@@ -140,10 +136,10 @@ struct Dims_t
 		return Dims_t(usCols / ulDivisor, usRows / ulDivisor);
 	}
 
-	friend std::ostream& operator << (std::ostream& xStreamL,
+	friend std::ostream& operator << (std::ostream& xLHS,
 									  const Dims_t& xRHS)
 	{
-		return xStreamL << "[" << xRHS.usCols << " " << xRHS.usRows << "]";
+		return xLHS << "[" << xRHS.usCols << " " << xRHS.usRows << "]";
 	}
 };
 
@@ -160,7 +156,18 @@ struct Block_t
 		return xPoint++ + usSignature + usWidth + usHeight + usAngle;
 	}
 
+    friend std::ostream& operator << (std::ostream& xLHS,
+                                      const Block_t& xRHS)
+    {
+        return xLHS << "Signature: " << xRHS.usSignature << std::endl
+                    << "Point: " << xRHS.xPoint << std::endl
+                    << "Size: [" << xRHS.usHeight << " "
+                                 << xRHS.usWidth << "]" << std::endl
+                    << "Angle: " << xRHS.usAngle;
+    }
+
 };
+
 
 } // namespace pixy
 } // namespace team9

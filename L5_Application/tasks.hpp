@@ -71,7 +71,12 @@ class PixyTask_t : public scheduler_task
         PixyTask_t (uint8_t ucPriority) :
 				scheduler_task("pixy", 2048, ucPriority),
 				pPixy(new Pixy_t(MAX_BLOCKS, GREEN, 64))
-		{}
+		{
+			ssp1_set_max_clock(1);
+			delay_ms(128);
+			while(LPC_SSP1->SR & (1 << 4));
+			LPC_GPIO0->FIOCLR = (1 << 16); // P0[16] as SSP1
+		}
 
         bool run(void *p)
         {
