@@ -19,15 +19,18 @@ namespace pixy
 class Pixy_t
 {
 	public:
-		Pixy_t () {}
+        enum State_t {CALIB, RUN, ERROR} eState;
 
-		Pixy_t (uint32_t ulMaxBlocks, ChipColor_t eColorCalib,
-				uint32_t ulCalibFrames) :
+        Pixy_t () {}
+
+		Pixy_t (uint32_t ulChipsAtATime, uint32_t ulChipsToCalib,
+		        ChipColor_t eColorCalib) :
 				eState(CALIB),
 				pPixyBrain(new pixy::PixyBrain_t(Dims_t(320, 200), eColorCalib,
-												 ulCalibFrames)),
-				pPixyEyes(new pixy::PixyEyes_t(ulMaxBlocks)),
-				pPixyMouth(new pixy::PixyMouth_t)
+				                                 ulChipsToCalib)),
+				pPixyEyes(new pixy::PixyEyes_t(ulChipsAtATime)),
+				pPixyMouth(new pixy::PixyMouth_t),
+				xFuncMap(new FuncMap_t<State_t, void>)
 		{
 			vInitMapFunc();
 			vInitMapStr();
@@ -35,32 +38,20 @@ class Pixy_t
 
 		void vAction()
 		{
-			auto& fpResponse = this->vResponse(eState);
-			fpResponse();
+		    xFuncMap->vResponse(eState)();
 		}
-
-		enum State_t {CALIB, RUN, ERROR} eState;
 
 	private:
 
-		void vSetHandler(State_t eState_arg, std::function<void()> fnHandler)
-		{
-		    fpMap[eState_arg] = fnHandler;
-		}
-
-		std::function<void()>& vResponse(State_t eState_arg)
-		{
-			std::cout << "State: " << xStringMap[eState_arg] << std::endl;
-		    return fpMap[eState_arg];
-		}
 
 		void vInitMapFunc()
 		{
-			vSetHandler(CALIB, [&] ()
+			xFuncMap->vSetHandler(CALIB, [&] ()
 			{
 				if (pPixyBrain->vCalibBoard(pPixyEyes.get()))
 				{
-					std::cout << "Calibrated board" << pPixyBrain->xGetCorners()
+					std::cout << "Calibrated board" << std::endl
+					          << pPixyBrain->xGetCorners()
 							  << std::endl;
 					eState = RUN;
 				}
@@ -70,12 +61,12 @@ class Pixy_t
 				}
 			});
 
-			vSetHandler(RUN, [&] ()
+			xFuncMap->vSetHandler(RUN, [&] ()
 			{
 			    eState = CALIB;
 			});
 
-			vSetHandler(ERROR, [&] ()
+			xFuncMap->vSetHandler(ERROR, [&] ()
 			{
 				std::cout << pPixyBrain->sGetLastError() << std::endl;
 				eState = ERROR;
@@ -92,8 +83,9 @@ class Pixy_t
         std::unique_ptr<pixy::PixyBrain_t> pPixyBrain;
         std::unique_ptr<pixy::PixyEyes_t> pPixyEyes;
         std::unique_ptr<pixy::PixyMouth_t> pPixyMouth;
-        std::map<State_t, std::function<void()>> fpMap;
         std::map<State_t, std::string> xStringMap;
+        std::unique_ptr<FuncMap_t<State_t, void>> xFuncMap;
+
 };
 
 } // namespace pixy

@@ -37,7 +37,7 @@
 
 void I2C_Base::handleInterrupt()
 {
-    /* If transfer finished (not busy), then give the signal */
+    /* If transfer finished (not bulY), then give the signal */
     if (busy != i2cStateMachine()) {
         long higherPriorityTaskWaiting = 0;
         xSemaphoreGiveFromISR(mTransferCompleteSignal, &higherPriorityTaskWaiting);

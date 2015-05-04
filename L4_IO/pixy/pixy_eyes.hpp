@@ -21,10 +21,10 @@ public:
     enum State_t {START, READ_FIRST, READ_BLOCK, READ_NEXT, DONE} eState;
     enum BlockType_t {NORMAL, COLOR_CODED} eBlockType;
 
-    PixyEyes_t(uint32_t ulMaxBlocks_arg) :
+    PixyEyes_t(uint32_t ulChipsAtATime_arg) :
         eState(START),
-        ulMaxBlocks(ulMaxBlocks_arg),
-        ulBlockCount(0),
+        ulChipsAtATime(ulChipsAtATime_arg),
+        ulChipCount(0),
         usChecksum(0x0000),
         usRecvLast(0xffff)
     {
@@ -40,255 +40,168 @@ public:
 
     uint32_t ulSeenBlocks(std::vector<Block_t>& vRecvBlocks)
     {
-        ulBlockCount = 0;
+        ulChipCount = 0;
         usChecksum = 0x0000;
         usRecvLast = 0xffff;
 
         vRecvBlocks.clear();
-        vRecvBlocks.resize(ulMaxBlocks);
+        vRecvBlocks.resize(ulChipsAtATime);
+        int start_counter = 0;
+        int read_first_counter = 0;
+        int read_block_counter = 0;
+        int read_next_counter = 0;
+        int default_counter = 0;
 
         while (eState != DONE)
         {
-            std::cout << "State: " << xStringMap[eState] << std::endl;
             switch (eState)
             {
-            case START:
-            {
-                uint16_t usRecv = usGetShort();
-                if (usRecv == 0xaa55 && usRecvLast == 0xaa55)
+                case START:
                 {
-                    eBlockType = NORMAL;
-                    eState = READ_FIRST;
-                }
-                else if (usRecv == 0xaa56 && usRecvLast == 0xaa55)
-                {
-                    eBlockType = COLOR_CODED;
-                    eState = READ_FIRST;
-                }
-                else if (usRecv == 0x55aa)
-                {
-                    ssp1_exchange_byte(0); // out of sync
-                    eState = START;
-                }
-                else
-                {
-                    eState = START;
-                }
-                usRecvLast = usRecv;
-                //		            	vStateStart();
-                break;
-            }
-            case READ_FIRST:
-            {
-                uint16_t usRecv = usGetShort();
-                switch (usRecv)
-                {
-                case 0xaa55:
-                {
-                    eBlockType = NORMAL;
-                    eState = DONE;
+                    start_counter++;
+                    vStateStart();
                     break;
                 }
-                case 0xaa56:
+                case READ_FIRST:
                 {
-                    eBlockType = COLOR_CODED;
-                    eState = DONE;
+                    read_first_counter++;
+                    vStateReadFirst();
                     break;
                 }
-                case 0x0000:
+                case READ_BLOCK:
                 {
-                    eState = START;
+                    read_block_counter++;
+                    vStateReadBlock(vRecvBlocks);
+                    break;
+                }
+                case READ_NEXT:
+                {
+                    read_next_counter++;
+                    vStateReadNext();
                     break;
                 }
                 default:
                 {
-                    usChecksum = usRecv;
-                    eState = READ_BLOCK;
+                    default_counter++;
+                    u0_dbg_printf("Error: usGetBlocks default case\n");
                     break;
                 }
-                }
-                usRecvLast = usRecv;
-                //		            	vStateReadFirst();
+            }
+        }
+        vRecvBlocks.resize(ulChipCount);
+        eState = START;
+        return ulChipCount;
+    }
+
+    __inline void vStateStart()
+    {
+        uint16_t usRecv = usGetShort();
+        if (usRecv == 0xaa55 && usRecvLast == 0xaa55)
+        {
+            eBlockType = NORMAL;
+            eState = READ_FIRST;
+        }
+        else if (usRecv == 0xaa56 && usRecvLast == 0xaa55)
+        {
+            eBlockType = COLOR_CODED;
+            eState = READ_FIRST;
+        }
+        else if (usRecv == 0x55aa)
+        {
+            ssp1_exchange_byte(0); // out of sync
+            eState = START;
+        }
+        else
+        {
+            eState = START;
+        }
+        usRecvLast = usRecv;
+    }
+
+    __inline void vStateReadFirst()
+    {
+        uint16_t usRecv = usGetShort();
+        switch (usRecv)
+        {
+            case 0xaa55:
+            {
+                eBlockType = NORMAL;
+                eState = DONE;
                 break;
             }
-            case READ_BLOCK:
+            case 0xaa56:
             {
-
-                Block_t xBlock;
-                xBlock.usSignature = usGetShort();
-                xBlock.xPoint.usX = usGetShort();
-                xBlock.xPoint.usY = usGetShort();
-                xBlock.usWidth= usGetShort();
-                xBlock.usHeight = usGetShort();
-                xBlock.usAngle = (eBlockType == NORMAL) ? 0 : usGetShort();
-                usRecvLast = (eBlockType == NORMAL) ? xBlock.usHeight :
-                        xBlock.usAngle;
-
-                uint16_t usBlockSum = xBlock++;
-                if (usChecksum == usBlockSum)
-                {
-                    vRecvBlocks[ulBlockCount] = xBlock;
-                    ulBlockCount++;
-                }
-                else
-                {
-                    u0_dbg_printf("usChecksum error!\t"
-                            "Checksum %d\tBlocksum: %d\n",
-                            usChecksum, usBlockSum);
-                }
-                eState = (ulBlockCount == ulMaxBlocks) ? DONE : READ_NEXT;
-
-                //		            	vStateReadBlock(vRecvBlocks);
+                eBlockType = COLOR_CODED;
+                eState = DONE;
                 break;
             }
-            case READ_NEXT:
+            case 0x0000:
             {
-                uint16_t usRecv = usGetShort();
-                switch (usRecv)
-                {
-                case 0xaa55:
-                {
-                    eBlockType = NORMAL;
-                    eState = READ_FIRST;
-                    break;
-                }
-                case 0xaa56:
-                {
-                    eBlockType = COLOR_CODED;
-                    eState = READ_FIRST;
-                    break;
-                }
-                default:
-                {
-                    eState = START;
-                    break;
-                }
-                }
-                usRecvLast = usRecv;
-                //		            	vStateReadNext();
+                eState = START;
                 break;
             }
             default:
             {
-                u0_dbg_printf("Error: usGetBlocks default case\n");
+                usChecksum = usRecv;
+                eState = READ_BLOCK;
                 break;
             }
-            }
         }
-        vRecvBlocks.resize(ulBlockCount);
-        eState = START;
-        return ulBlockCount;
+        usRecvLast = usRecv;
     }
 
+    __inline void vStateReadBlock(std::vector<Block_t>& vRecvBlocks)
+    {
+        Block_t xBlock;
+        xBlock.usSignature = usGetShort();
+        xBlock.xPoint.ulX = usGetShort();
+        xBlock.xPoint.ulY = usGetShort();
+        xBlock.usWidth = usGetShort();
+        xBlock.usHeight = usGetShort();
+        xBlock.usAngle = (eBlockType == NORMAL) ? 0 : usGetShort();
+        usRecvLast = (eBlockType == NORMAL) ? xBlock.usHeight :
+                                              xBlock.usAngle;
 
-    //		__inline void vStateStart()
-    //		{
-    //			uint16_t usRecv = usGetShort();
-    //			if (usRecv == 0xaa55 && usRecvLast == 0xaa55)
-    //			{
-    //				eBlockType = NORMAL;
-    //				eState = READ_FIRST;
-    //			}
-    //			else if (usRecv == 0xaa56 && usRecvLast == 0xaa55)
-    //			{
-    //				eBlockType = COLOR_CODED;
-    //				eState = READ_FIRST;
-    //			}
-    //			else if (usRecv == 0x55aa)
-    //			{
-    //				ssp1_exchange_byte(0); // out of sync
-    //				eState = START;
-    //			}
-    //			else
-    //			{
-    //				eState = START;
-    //			}
-    //			usRecvLast = usRecv;
-    //		}
+        uint16_t usBlockSum = xBlock++;
+        if (usChecksum == usBlockSum)
+        {
+            vRecvBlocks[ulChipCount] = xBlock;
+            ulChipCount++;
+        }
+        else
+        {
+            u0_dbg_printf("usChecksum error!\t"
+                    "Checksum %d\tBlocksum: %d\n",
+                    usChecksum, usBlockSum);
+        }
+        eState = (ulChipCount == ulChipsAtATime) ? DONE : READ_NEXT;
+    }
 
-    //		__inline void vStateReadFirst()
-    //		{
-    //            uint16_t usRecv = usGetShort();
-    //            switch (usRecv)
-    //            {
-    //                case 0xaa55:
-    //                {
-    //                    eBlockType = NORMAL;
-    //                    eState = DONE;
-    //                    break;
-    //                }
-    //                case 0xaa56:
-    //                {
-    //                    eBlockType = COLOR_CODED;
-    //                    eState = DONE;
-    //                    break;
-    //                }
-    //                case 0x0000:
-    //                {
-    //                    eState = START;
-    //                    break;
-    //                }
-    //                default:
-    //                {
-    //                    usChecksum = usRecv;
-    //                    eState = READ_BLOCK;
-    //                    break;
-    //                }
-    //            }
-    //            usRecvLast = usRecv;
-    //		}
-
-    //		__inline void vStateReadBlock(std::vector<Block_t>& vRecvBlocks)
-    //		{
-    //			Block_t xBlock;
-    //			xBlock.usSignature = usGetShort();
-    //			xBlock.xPoint.usX = usGetShort();
-    //			xBlock.xPoint.usY = usGetShort();
-    //			xBlock.usWidth= usGetShort();
-    //			xBlock.usHeight = usGetShort();
-    //			xBlock.usAngle = (eBlockType == NORMAL) ? 0 : usGetShort();
-    //			usRecvLast = (eBlockType == NORMAL) ? xBlock.usHeight :
-    //											      xBlock.usAngle;
-    //
-    //			uint16_t usBlockSum = xBlock++;
-    //			if (usChecksum == usBlockSum)
-    //			{
-    //				vRecvBlocks[ulBlockCount++] = xBlock;
-    //			}
-    //			else
-    //			{
-    //				u0_dbg_printf("usChecksum error!\t"
-    //							  "Checksum %d\tBlocksum: %d\n",
-    //							   usChecksum, usBlockSum);
-    //			}
-    //			eState = (ulBlockCount == ulMaxBlocks) ? DONE : READ_NEXT;
-    //		}
-
-    //        __inline void vStateReadNext()
-    //        {
-    //            uint16_t usRecv = usGetShort();
-    //            switch (usRecv)
-    //            {
-    //                case 0xaa55:
-    //                {
-    //                    eBlockType = NORMAL;
-    //                    eState = READ_FIRST;
-    //                    break;
-    //                }
-    //                case 0xaa56:
-    //                {
-    //                	eBlockType = COLOR_CODED;
-    //                    eState = READ_FIRST;
-    //                    break;
-    //                }
-    //                default:
-    //                {
-    //                    eState = START;
-    //                    break;
-    //                }
-    //            }
-    //            usRecvLast = usRecv;
-    //        }
+    __inline void vStateReadNext()
+    {
+        uint16_t usRecv = usGetShort();
+        switch (usRecv)
+        {
+            case 0xaa55:
+            {
+                eBlockType = NORMAL;
+                eState = READ_FIRST;
+                break;
+            }
+            case 0xaa56:
+            {
+                eBlockType = COLOR_CODED;
+                eState = READ_FIRST;
+                break;
+            }
+            default:
+            {
+                eState = START;
+                break;
+            }
+        }
+        usRecvLast = usRecv;
+    }
 
     void vInitMapStr()
     {
@@ -302,8 +215,8 @@ public:
 private:
     std::vector<pixy::Block_t> xBlocks;
     std::map<State_t, std::string> xStringMap;
-    uint32_t ulMaxBlocks;
-    uint32_t ulBlockCount;
+    uint32_t ulChipsAtATime;
+    uint32_t ulChipCount;
     uint16_t usChecksum;
     uint16_t usRecvLast;
 };

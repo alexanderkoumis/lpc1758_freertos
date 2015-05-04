@@ -70,7 +70,7 @@ class PixyTask_t : public scheduler_task
     public:
         PixyTask_t (uint8_t ucPriority) :
 				scheduler_task("pixy", 2048, ucPriority),
-				pPixy(new Pixy_t(MAX_BLOCKS, GREEN, 64))
+				pPixy(new Pixy_t(CHIPS_AT_A_TIME, CHIPS_TO_CALIB, GREEN))
 		{
 			ssp1_set_max_clock(1);
 			delay_ms(128);
