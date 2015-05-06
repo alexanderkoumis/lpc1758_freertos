@@ -5,6 +5,9 @@
 #include <iostream>
 #include <algorithm>
 
+#include "L5_Application/source/libfixmatrix/fixmatrix.h"
+#include "L5_Application/source/libfixmatrix/fixvector3d.h"
+
 #include "pixy.hpp"
 #include "pixy/pixy_common.hpp"
 #include "pixy/pixy_eyes.hpp"
@@ -40,7 +43,7 @@ class PixyBrain_t
                         Quadrant_t xQuadrant = xComputeQuadrant(xBlock.xPoint);
                         if (xQuadrant < 4)
                         {
-                            xCorners.vUpdate(xQuadrant, xBlock.xPoint);
+                            vUpdateCorners(xCorners, xQuadrant, xBlock);
                         }
                     }
                 }
@@ -51,6 +54,12 @@ class PixyBrain_t
             }
             sLastError = "Poorly calibrated corners";
             return false;
+        }
+
+        void vInitBoard(PixyEyes_t* pPixyEyes, std::vector<Point_t>& xPoints)
+        {
+            float xRadDistParam;
+            vComputeRadialDistortion(xCorners, xRadDistParam);
         }
 
         std::string sGetLastError()
@@ -71,6 +80,8 @@ class PixyBrain_t
         Dims_t xCamDimsHalf;
         ChipColor_t eColorCalib;
         uint32_t ulChipsToCalib;
+
+        std::unique_ptr<Board_t> pBoard;
 
         __inline Quadrant_t xComputeQuadrant(Point_t& xPoint)
         {
@@ -103,6 +114,33 @@ class PixyBrain_t
             sLastError = "Point was not in any quadrant or out of bounds??";
             return ERROR;
         }
+
+        __inline void vUpdateCorners(Corners_t& xCorners_arg,
+                                     Quadrant_t& xQuadrant, Block_t& xBlock)
+        {
+            uint32_t usCenterRow = xBlock.xPoint.ulY + (xBlock.usHeight/2);
+            uint32_t usCenterCol = xBlock.xPoint.ulX + (xBlock.usWidth/2);
+            xCorners_arg.xStats[2*xQuadrant].vUpdate(usCenterRow);
+            xCorners_arg.xStats[2*xQuadrant+1].vUpdate(usCenterCol);
+        }
+
+        void vComputeRadialDistortion(Corners_t& xCorners_arg,
+                                               float& xLambda)
+        {
+            auto xTL = xCorners.xGet(TOP_LEFT);
+            auto xTR = xCorners.xGet(TOP_RIGHT);
+            auto xBL = xCorners.xGet(BOT_LEFT);
+
+            std::cout << "TL: " << std::get<0>(xTL) << " " << std::get<1>(xTL) << std::endl;
+            std::cout << "TL: " << std::get<0>(xTR) << " " << std::get<1>(xTR) << std::endl;
+            std::vector<Point_t> xPoints;
+            xPointsOnLine<float>(xTL, xBL, 6, xPoints);
+            Point_t::vPrintPoints(xPoints);
+        }
+
+
+
+
 
 };
 

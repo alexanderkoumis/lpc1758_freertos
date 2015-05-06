@@ -12,6 +12,8 @@
 #include <sstream>    // ostringstream
 #include <tuple>      // tie
 #include <functional> // function
+#include <algorithm>  // transform
+
 namespace team9
 {
 namespace pixy
@@ -19,7 +21,7 @@ namespace pixy
 
 enum ChipColor_t
 {
-    GREEN = 1, RED = 2
+    GREEN = 1, RED = 2, NONE = 999
 };
 
 enum Quadrant_t
@@ -85,6 +87,11 @@ struct Point_t
         return !(ulX == 0 && ulY == 0);
     }
 
+    bool operator == (const Point_t& xRHS)
+    {
+        return (ulX == xRHS.ulX && ulY == xRHS.ulY);
+    }
+
     __inline uint32_t operator ++ (int) const
     {
         return ulX + ulY;
@@ -103,6 +110,15 @@ struct Point_t
         oss.clear();
         oss << this;
         return oss.str();
+    }
+
+    static void vPrintPoints(std::vector<Point_t>& xPoints)
+    {
+        std::cout << "Points" << std::endl;
+        for (auto& xPoint : xPoints)
+        {
+            std::cout << xPoint << std::endl;
+        }
     }
 
 };
@@ -268,12 +284,6 @@ struct Corners_t
                     << "]";
     }
 
-    void vUpdate(Quadrant_t& xQuadrant, Point_t& xPoint)
-    {
-        xStats[2*xQuadrant].vUpdate(xPoint.ulX);
-        xStats[2*xQuadrant+1].vUpdate(xPoint.ulY);
-    }
-
     static std::string xCornerStr(const Corners_t& xCorners,
                                   Quadrant_t xQuadrant)
     {
@@ -283,9 +293,59 @@ struct Corners_t
                  xCorners.xStats[2*xQuadrant].xMean());
         return std::string(buff);
     }
+
+    std::tuple<float, float> xGet(Quadrant_t xQuadrant)
+    {
+       return std::make_tuple(xStats[2*xQuadrant].xMean(), xStats[2*xQuadrant+1].xMean());
+    }
+
 };
+
+struct Chip_t
+{
+    std::pair<RunningStat_t<uint32_t, float>,
+              RunningStat_t<uint32_t, float>> xChipPair;
+    ChipColor_t xChipColor;
+};
+
+class Board_t
+{
+    public:
+        Board_t(float x) : ulRows(6), ulCols(7)
+        {
+            xChips.resize(ulRows * ulCols);
+        }
+
+    private:
+        std::vector<Chip_t> xChips;
+        uint32_t ulRows;
+        uint32_t ulCols;
+};
+
+template<typename T>
+void xPointsOnLine(std::tuple<T, T>& xPtA, std::tuple<T, T>& xPtB,
+              int xNumPts, std::vector<Point_t>& xPointVec)
+{
+    float xX1 = std::get<0>(xPtA);
+    float xY1 = std::get<1>(xPtA);
+    float xX2 = std::get<0>(xPtB);
+    float xY2 = std::get<1>(xPtB);
+    float xXDistFull = xX2 - xX1;
+    float xYDistFull = xY2 - xY2;
+    float xXDistInc = xXDistFull / (xNumPts-1);
+    float xYDistInc = xYDistFull / (xNumPts-1);
+    size_t xIdx = -1;
+    xPointVec.assign(xNumPts, Point_t(xX1, xY1));
+    std::transform(xPointVec.begin(), xPointVec.end(), xPointVec.begin(),
+            [&](Point_t xPoint) {
+        xIdx++;
+        return xPoint += Point_t(xIdx * xXDistInc, xIdx * xYDistInc);
+    });
+}
+
 
 } // namespace pixy
 } // namespace team9
 
 #endif
+

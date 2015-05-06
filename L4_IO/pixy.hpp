@@ -10,6 +10,7 @@
 #include "pixy/pixy_brain.hpp"
 #include "pixy/pixy_eyes.hpp"
 #include "pixy/pixy_mouth.hpp"
+#include "pixy/pixy_display.hpp"
 
 namespace team9
 {
@@ -30,6 +31,7 @@ class Pixy_t
 				                                 ulChipsToCalib)),
 				pPixyEyes(new pixy::PixyEyes_t(ulChipsAtATime)),
 				pPixyMouth(new pixy::PixyMouth_t),
+				pPixyDisplay(new pixy::PixyDisplay_t("#", 320, 200)),
 				xFuncMap(new FuncMap_t<State_t, void>)
 		{
 			vInitMapFunc();
@@ -50,9 +52,14 @@ class Pixy_t
 			{
 				if (pPixyBrain->vCalibBoard(pPixyEyes.get()))
 				{
-					std::cout << "Calibrated board" << std::endl
-					          << pPixyBrain->xGetCorners()
-							  << std::endl;
+//					std::cout << "Calibrated board" << std::endl
+//					          << pPixyBrain->xGetCorners()
+//							  << std::endl;
+				    std::vector<Point_t> xPoints;
+					pPixyBrain->vInitBoard(pPixyEyes.get(), xPoints);
+
+//					pPixyDisplay->vUpdate(xPoints, true);
+//					pPixyDisplay->vPrint();
 					eState = RUN;
 				}
 				else
@@ -63,6 +70,9 @@ class Pixy_t
 
 			xFuncMap->vSetHandler(RUN, [&] ()
 			{
+
+
+
 			    eState = CALIB;
 			});
 
@@ -83,6 +93,8 @@ class Pixy_t
         std::unique_ptr<pixy::PixyBrain_t> pPixyBrain;
         std::unique_ptr<pixy::PixyEyes_t> pPixyEyes;
         std::unique_ptr<pixy::PixyMouth_t> pPixyMouth;
+        std::unique_ptr<pixy::PixyDisplay_t> pPixyDisplay;
+
         std::map<State_t, std::string> xStringMap;
         std::unique_ptr<FuncMap_t<State_t, void>> xFuncMap;
 
