@@ -52,12 +52,11 @@ class Pixy_t
 			{
 				if (pPixyBrain->vCalibBoard(pPixyEyes.get()))
 				{
+				    pPixyBrain->vPrintChips();
 //					std::cout << "Calibrated board" << std::endl
 //					          << pPixyBrain->xGetCorners()
 //							  << std::endl;
-				    std::vector<Point_t> xPoints;
-					pPixyBrain->vInitBoard(pPixyEyes.get(), xPoints);
-
+//				    std::vector<Point_t> xPoints;
 //					pPixyDisplay->vUpdate(xPoints, true);
 //					pPixyDisplay->vPrint();
 					eState = RUN;
@@ -78,7 +77,7 @@ class Pixy_t
 
 			xFuncMap->vSetHandler(ERROR, [&] ()
 			{
-				std::cout << pPixyBrain->sGetLastError() << std::endl;
+				std::cout << pPixyBrain->xGetErrors() << std::endl;
 				eState = ERROR;
 			});
 		}

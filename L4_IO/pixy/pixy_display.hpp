@@ -30,15 +30,15 @@ class PixyDisplay_t
             {
                 xRow /= xScale;
                 xCol /= xScale;
-                xPointVec.push_back(Point_t(xRow, xCol));
+                xPointVec.push_back(Point_t<uint32_t>(xRow, xCol));
             }
         }
 
-        void vUpdate(std::vector<Point_t>& xPoints, bool xState)
+        void vUpdate(std::vector<Point_t<uint32_t>>& xPoints, bool xState)
         {
             for (auto& xPoint : xPoints)
             {
-                if (xPoint.ulY < xRows && xPoint.ulX < xCols)
+                if (xPoint.xY < xRows && xPoint.xX < xCols)
                 {
                     xPointVec.push_back(xPoint / xScale);
                 }
@@ -73,12 +73,12 @@ class PixyDisplay_t
             bool xFound = false;
             for (auto& xPair : xPointVec)
             {
-                xFound |= (xPair == Point_t(xRow, xCol));
+                xFound |= (xPair == Point_t<uint32_t>(xRow, xCol));
             }
             return xFound;
         }
 
-        std::vector<Point_t> xPointVec;
+        std::vector<Point_t<uint32_t>> xPointVec;
         std::ostringstream oss;
         std::string xPix;
         uint32_t ulCurrElems;

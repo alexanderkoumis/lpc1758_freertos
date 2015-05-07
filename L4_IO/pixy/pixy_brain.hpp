@@ -3,10 +3,8 @@
 
 #include <vector>
 #include <iostream>
+#include <queue>
 #include <algorithm>
-
-#include "L5_Application/source/libfixmatrix/fixmatrix.h"
-#include "L5_Application/source/libfixmatrix/fixvector3d.h"
 
 #include "pixy.hpp"
 #include "pixy/pixy_common.hpp"
@@ -24,13 +22,16 @@ class PixyBrain_t
         PixyBrain_t(Dims_t xCamDims_arg, ChipColor_t eColorCalib_arg,
                 uint32_t ulChipsToCalib_arg) :
                 xCamDims(xCamDims_arg), xCamDimsHalf(xCamDims / 2),
-                eColorCalib(eColorCalib_arg), ulChipsToCalib(ulChipsToCalib_arg)
+                eColorCalib(eColorCalib_arg),
+                ulChipsToCalib(ulChipsToCalib_arg),
+                pBoard(new Board_t)
         {}
 
         bool vCalibBoard(PixyEyes_t* pPixyEyes)
         {
             uint32_t ulChips = 0;
             uint32_t ulCalibChips = 0;
+            Corners_t xCorners;
             while (ulChips < ulChipsToCalib)
             {
                 std::vector<Block_t> xBlocks;
@@ -50,98 +51,114 @@ class PixyBrain_t
             }
             if (xCorners())
             {
-                return true;
+                xLastCorners = xCorners;
+                if (vBuildGrid(xCorners))
+                {
+                    F();
+                    return true;
+                }
             }
-            sLastError = "Poorly calibrated corners";
+            xErrorQueue.push("Poorly calibrated corners");
             return false;
         }
 
-        void vInitBoard(PixyEyes_t* pPixyEyes, std::vector<Point_t>& xPoints)
+        std::string xGetErrors()
         {
-            float xRadDistParam;
-            vComputeRadialDistortion(xCorners, xRadDistParam);
-        }
-
-        std::string sGetLastError()
-        {
-            return sLastError;
+            size_t xErrIdx = 0;
+            std::ostringstream oss;
+            while (!xErrorQueue.empty())
+            {
+                oss << "Error #" << xErrIdx << ": "
+                    << xErrorQueue.front() << "\n";
+                xErrorQueue.pop();
+            }
+            return oss.str();
         }
 
         Corners_t xGetCorners()
         {
-            return xCorners;
+            return xLastCorners;
+        }
+
+        void vPrintChips()
+        {
+            Board_t::vPrintChips(*pBoard);
         }
 
     private:
 
-        std::string sLastError;
-        Corners_t xCorners;
+        std::unique_ptr<Board_t> pBoard;
+
+        std::queue<std::string> xErrorQueue;
+
+        Corners_t xLastCorners;
         Dims_t xCamDims;
         Dims_t xCamDimsHalf;
         ChipColor_t eColorCalib;
         uint32_t ulChipsToCalib;
 
-        std::unique_ptr<Board_t> pBoard;
+        std::string sLastError;
 
-        __inline Quadrant_t xComputeQuadrant(Point_t& xPoint)
+        __inline Quadrant_t xComputeQuadrant(Point_t<uint16_t>& xPoint)
         {
-            if (xPoint.ulX < 0 || xPoint.ulY < 0 ||
-                xPoint.ulX >= xCamDims.usCols || xPoint.ulY >= xCamDims.usRows)
+            if (xPoint.xX < 0 || xPoint.xY < 0 ||
+                xPoint.xX >= xCamDims.usCols || xPoint.xY >= xCamDims.usRows)
             {
-                sLastError = "Chip out of bounds: " + xPoint.sStr();
+                xErrorQueue.push("Chip out of bounds: " +
+                                 Point_t<uint16_t>::xPointStr(xPoint));
                 return ERROR;
             }
-            else if (xPoint.ulX <= xCamDimsHalf.usCols &&
-                     xPoint.ulY <= xCamDimsHalf.usRows)
+            else if (xPoint.xX <= xCamDimsHalf.usCols &&
+                     xPoint.xY <= xCamDimsHalf.usRows)
             {
                 return TOP_LEFT;
             }
-            else if (xPoint.ulX <= xCamDimsHalf.usCols &&
-                     xPoint.ulY > xCamDimsHalf.usRows)
+            else if (xPoint.xX <= xCamDimsHalf.usCols &&
+                     xPoint.xY > xCamDimsHalf.usRows)
             {
                 return BOT_LEFT;
             }
-            else if (xPoint.ulX > xCamDimsHalf.usCols &&
-                     xPoint.ulY <= xCamDimsHalf.usRows)
+            else if (xPoint.xX > xCamDimsHalf.usCols &&
+                     xPoint.xY <= xCamDimsHalf.usRows)
             {
                 return TOP_RIGHT;
             }
-            else if (xPoint.ulX > xCamDimsHalf.usCols &&
-                     xPoint.ulY > xCamDimsHalf.usRows)
+            else if (xPoint.xX > xCamDimsHalf.usCols &&
+                     xPoint.xY > xCamDimsHalf.usRows)
             {
                 return BOT_RIGHT;
             }
-            sLastError = "Point was not in any quadrant or out of bounds??";
+            xErrorQueue.push("Point was not in any quadrant or out of bounds?");
             return ERROR;
         }
 
-        __inline void vUpdateCorners(Corners_t& xCorners_arg,
+        __inline void vUpdateCorners(Corners_t& xCorners,
                                      Quadrant_t& xQuadrant, Block_t& xBlock)
         {
-            uint32_t usCenterRow = xBlock.xPoint.ulY + (xBlock.usHeight/2);
-            uint32_t usCenterCol = xBlock.xPoint.ulX + (xBlock.usWidth/2);
-            xCorners_arg.xStats[2*xQuadrant].vUpdate(usCenterRow);
-            xCorners_arg.xStats[2*xQuadrant+1].vUpdate(usCenterCol);
+            xCorners.xStats[2*xQuadrant].vUpdate(xBlock.xPoint.xY);
+            xCorners.xStats[2*xQuadrant+1].vUpdate(xBlock.xPoint.xX);
         }
 
-        void vComputeRadialDistortion(Corners_t& xCorners_arg,
-                                               float& xLambda)
+        bool vBuildGrid (Corners_t& xCorners)
         {
-            auto xTL = xCorners.xGet(TOP_LEFT);
-            auto xTR = xCorners.xGet(TOP_RIGHT);
-            auto xBL = xCorners.xGet(BOT_LEFT);
+            std::vector<Point_t<float>> xTLBL;
+            std::vector<Point_t<float>> xTRBR;
+            xPointsOnLine(xCorners(TOP_LEFT), xCorners(BOT_LEFT), 6, xTLBL);
+            xPointsOnLine(xCorners(TOP_RIGHT), xCorners(BOT_RIGHT), 6, xTRBR);
+            size_t xRowIdx = 0;
+            for (auto& xLPoint : xTLBL)
+            {
+                std::vector<Point_t<float>> xMID;
+                xPointsOnLine(xLPoint, xTRBR[xRowIdx], 7, xMID);
 
-            std::cout << "TL: " << std::get<0>(xTL) << " " << std::get<1>(xTL) << std::endl;
-            std::cout << "TL: " << std::get<0>(xTR) << " " << std::get<1>(xTR) << std::endl;
-            std::vector<Point_t> xPoints;
-            xPointsOnLine<float>(xTL, xBL, 6, xPoints);
-            Point_t::vPrintPoints(xPoints);
+                if (!pBoard->xFillRow(xRowIdx++, xMID))
+                {
+                    xErrorQueue.push("Row vector invalid size");
+                    return false;
+                }
+            }
+             return true;
         }
-
-
-
-
-
 };
 
 } // namespace pixy

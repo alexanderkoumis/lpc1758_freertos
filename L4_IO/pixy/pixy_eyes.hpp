@@ -154,8 +154,8 @@ public:
     {
         Block_t xBlock;
         xBlock.usSignature = usGetShort();
-        xBlock.xPoint.ulX = usGetShort();
-        xBlock.xPoint.ulY = usGetShort();
+        xBlock.xPoint.xX = usGetShort();
+        xBlock.xPoint.xY = usGetShort();
         xBlock.usWidth = usGetShort();
         xBlock.usHeight = usGetShort();
         xBlock.usAngle = (eBlockType == NORMAL) ? 0 : usGetShort();

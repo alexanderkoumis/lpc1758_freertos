@@ -14,6 +14,8 @@
 #include <functional> // function
 #include <algorithm>  // transform
 
+#define F() std::cout << "Line: " << __LINE__ << ", func: " << __func__ << std::endl;
+
 namespace team9
 {
 namespace pixy
@@ -21,7 +23,7 @@ namespace pixy
 
 enum ChipColor_t
 {
-    GREEN = 1, RED = 2, NONE = 999
+    GREEN = 1, RED = 2, NONE = 3
 };
 
 enum Quadrant_t
@@ -29,87 +31,87 @@ enum Quadrant_t
     TOP_LEFT = 0, TOP_RIGHT = 1, BOT_LEFT = 2, BOT_RIGHT = 3, ERROR = 4
 };
 
-enum Stat_t
+enum StatEnum_t
 {
     M, V, S
 };
 
+
+template<typename T>
 struct Point_t
 {
-    uint32_t ulX;
-    uint32_t ulY;
+    T xX;
+    T xY;
 
-    Point_t(uint32_t ulX_arg = 0, uint32_t ulY_arg = 0)
+    Point_t(T xX_arg = 0, T xY_arg = 0)
     {
-        std::tie(ulX, ulY) = std::tie(ulX_arg, ulY_arg);
+        std::tie(xX, xY) = std::tie(xX_arg, xY_arg);
     }
 
     Point_t& operator = (const Point_t& xRHS)
     {
-        std::tie(ulX, ulY) = std::tie(xRHS.ulX, xRHS.ulY);
+        std::tie(xX, xY) = std::tie(xRHS.xX, xRHS.xY);
         return *this;
     }
 
     Point_t& operator += (const Point_t& xRHS)
 	{
-        std::tie(ulX += xRHS.ulX, ulY += xRHS.ulY);
+        std::tie(xX += xRHS.xX, xY += xRHS.xY);
         return *this;
 	}
 
     Point_t operator + (const Point_t& xRHS) const
     {
-        return Point_t(ulX + xRHS.ulX, ulY + xRHS.ulY);
+        return Point_t(xX + xRHS.xX, xY + xRHS.xY);
     }
 
     Point_t operator - (const Point_t& xRHS) const
     {
-        return Point_t(ulX - xRHS.ulX, ulY - xRHS.ulY);
+        return Point_t(xX - xRHS.xX, xY - xRHS.xY);
     }
 
     Point_t operator * (const Point_t& xRHS) const
     {
-        return Point_t(ulX * xRHS.ulX, ulY * xRHS.ulY);
+        return Point_t(xX * xRHS.xX, xY * xRHS.xY);
     }
 
     Point_t operator / (const Point_t& xRHS) const
     {
-        return Point_t(ulX / xRHS.ulX, ulY / xRHS.ulY);
+        return Point_t(xX / xRHS.xX, xY / xRHS.xY);
     }
 
     Point_t& operator /= (const uint32_t& ulDivisor)
     {
-        std::tie(ulX /= ulDivisor, ulY /= ulDivisor);
+        std::tie(xX /= ulDivisor, xY /= ulDivisor);
         return *this;
     }
 
     bool operator () ()
     {
-        return !(ulX == 0 && ulY == 0);
+        return !(xX == 0 && xY == 0);
     }
 
     bool operator == (const Point_t& xRHS)
     {
-        return (ulX == xRHS.ulX && ulY == xRHS.ulY);
+        return (xX == xRHS.xX && xY == xRHS.xY);
     }
 
     __inline uint32_t operator ++ (int) const
     {
-        return ulX + ulY;
+        return xX + xY;
     }
 
     friend std::ostream& operator << (std::ostream& xLHS,
             const Point_t& xRHS)
     {
-        return xLHS << "[" << xRHS.ulX << " " << xRHS.ulY << "]";
+        return xLHS << "[" << xRHS.xY << " " << xRHS.xX << "]";
     }
 
-    __inline std::string sStr()
+    static std::string xPointStr(const Point_t xPoint)
     {
-        std::ostringstream oss;
-        oss.str("");
-        oss.clear();
-        oss << this;
-        return oss.str();
+        std::ostringstream xOss;
+        xOss << xPoint;
+        return xOss.str();
     }
 
     static void vPrintPoints(std::vector<Point_t>& xPoints)
@@ -120,7 +122,6 @@ struct Point_t
             std::cout << xPoint << std::endl;
         }
     }
-
 };
 
 struct Dims_t
@@ -153,7 +154,7 @@ struct Dims_t
 
 struct Block_t
 {
-    Point_t xPoint;
+    Point_t<uint16_t> xPoint;
     uint16_t usSignature;
     uint16_t usWidth;
     uint16_t usHeight;
@@ -191,74 +192,115 @@ struct FuncMap_t
         return fpMap[xElem];
     }
 };
-template<typename IN_T, typename OUT_T>
-class RunningStat_t
+
+template<typename T>
+class PointStat_t : public Point_t<T>
+{
+    public:
+        PointStat_t() {}
+
+        PointStat_t(Point_t<T>& xPoint) : Point_t<T>(xPoint)
+        {}
+
+        void vUpdate(Point_t<T> xNewPoint)
+        {
+            if (++ulCnt == 1)
+            {
+                this->xX = xXOldMean = xNewPoint.xX;
+                this->xY = xYOldMean = xNewPoint.xY;
+                xXNewStdDev = xXOldStdDev = 0.0;
+                xYNewStdDev = xYOldStdDev = 0.0;
+            }
+            else
+            {
+                this->xX = xXOldMean + (xNewPoint.xX - xXOldMean) / ulCnt;
+                this->xY = xYOldMean + (xNewPoint.xY - xYOldMean) / ulCnt;
+                // Love these FreeRTOS conventions!!!
+                xXNewStdDev = xXOldStdDev + (xNewPoint.xX- xXOldMean)
+                                          * (xNewPoint.xX - this->xX);
+                xYNewStdDev = xYOldStdDev + (xNewPoint.xY- xYOldMean)
+                                          * (xNewPoint.xY - this->xY);
+            }
+        }
+
+        std::string xGet()
+        {
+            std::cout << "[" << this->xY << " " << this->xX << "]";
+        }
+
+    private:
+    //  T xXNewMean == xX from parent
+    //  T xYNewMean == xY from parent
+        T xXOldMean;
+        T xYOldMean;
+        T xXNewStdDev;
+        T xYNewStdDev;
+        T xXOldStdDev;
+        T xYOldStdDev;
+        uint64_t ulCnt = 0;
+};
+
+
+template<typename T>
+class Stat_t
 {
     // johndcook.com/blog/standard_deviation
     // See Knuth TAOCP vol 2, 3rd edition, page 232
-
     public:
-
-        RunningStat_t ()
+        Stat_t ()
         {
-            vInitStringMap();
+            xNewMean = 0;
+            xOldMean = 0;
+            xNewStdDev = 0;
+            xOldStdDev = 0;
+            ulCnt = 0;
         }
 
         bool operator () ()
         {
-            return xMeanNew;
+            return xNewMean;
         }
 
-        void vUpdate(IN_T& xVal)
+        void vUpdate(T xVal)
         {
             if (++ulCnt == 1)
             {
-                xMeanOld = (OUT_T)xVal;
-                xMeanNew = (OUT_T)xVal;
-                xStdDevOld = (OUT_T)0.0;
+                xNewMean = xOldMean = xVal;
+                xNewStdDev = xOldStdDev = 0.0;
             }
             else
             {
-                xMeanNew = xMeanOld + (OUT_T)(xVal - (OUT_T)xMeanOld) / ulCnt;
-                xStdDevNew = xStdDevOld + (OUT_T)(xVal - (OUT_T)xMeanOld) *
-                                                 (xVal - (OUT_T)xMeanNew);
+                xNewMean = xOldMean + (xVal - xOldMean) / ulCnt;
+                xNewStdDev = xOldStdDev + (xVal - xOldMean) * (xVal - xNewMean);
             }
         }
 
-        void vInitStringMap()
+        __inline T xMean() const
         {
-            xStringMap[M] = "Mean";
-            xStringMap[V] = "Variance";
-            xStringMap[S] = "Standard Deviation";
+            return (ulCnt > 1) ? xNewMean : 0.0;
         }
 
-        __inline OUT_T xMean() const
+        __inline T xVariance() const
         {
-            return (ulCnt > 1) ? xMeanNew : 0.0;
+            return (ulCnt > 1) ? xNewStdDev / ulCnt : 0.0;
         }
 
-        __inline OUT_T xVariance() const
-        {
-            return (ulCnt > 1) ? xStdDevNew / ulCnt : 0.0;
-        }
-
-        __inline OUT_T xStdDev() const
+        __inline T xStdDev() const
         {
             return std::sqrt(xVariance());
         }
 
     private:
-        std::map<Stat_t, std::string> xStringMap;
+        T xNewMean;
+        T xOldMean;
+        T xNewStdDev;
+        T xOldStdDev;
         uint64_t ulCnt = 0;
-        OUT_T xMeanOld;
-        OUT_T xMeanNew;
-        OUT_T xStdDevOld;
-        OUT_T xStdDevNew;
 };
 
 struct Corners_t
 {
-    std::vector<RunningStat_t<uint32_t, float>> xStats;
+    std::vector<Stat_t<float>> xStats;
 
     Corners_t()
     {
@@ -273,8 +315,13 @@ struct Corners_t
                xStats[2*BOT_RIGHT]() && xStats[2*BOT_RIGHT+1]();
     }
 
-    friend std::ostream& operator << (std::ostream& xLHS,
-            const Corners_t& xRHS)
+    Point_t<float> operator() (Quadrant_t xQuadrant) const
+    {
+        return Point_t<float>(xStats[2*xQuadrant].xMean(),
+                              xStats[2*xQuadrant+1].xMean());
+    }
+
+    friend std::ostream& operator << (std::ostream& xLHS, const Corners_t& xRHS)
     {
         return xLHS << std::noskipws << "[" << std::endl
                     << "    " << xCornerStr(xRHS, TOP_LEFT)
@@ -287,59 +334,83 @@ struct Corners_t
     static std::string xCornerStr(const Corners_t& xCorners,
                                   Quadrant_t xQuadrant)
     {
-        char buff[128];
-        snprintf(buff, sizeof(buff)/sizeof(buff[0]), "[%3.2f %3.2f]",
-                 xCorners.xStats[2*xQuadrant+1].xMean(),
-                 xCorners.xStats[2*xQuadrant].xMean());
+        static const uint32_t ulBuffSize = 32;
+        char buff[ulBuffSize];
+        snprintf(buff, ulBuffSize, "[%3.2f %3.2f]",
+                 xCorners.xStats[2*xQuadrant].xMean(),
+                 xCorners.xStats[2*xQuadrant+1].xMean());
         return std::string(buff);
     }
-
-    std::tuple<float, float> xGet(Quadrant_t xQuadrant)
-    {
-       return std::make_tuple(xStats[2*xQuadrant].xMean(), xStats[2*xQuadrant+1].xMean());
-    }
-
 };
+
 
 struct Chip_t
 {
-    std::pair<RunningStat_t<uint32_t, float>,
-              RunningStat_t<uint32_t, float>> xChipPair;
-    ChipColor_t xChipColor;
+    PointStat_t<float> xPtLocation;
+    Stat_t<float> xChipColor;
+
+    Chip_t() {}
+
+    Chip_t(Point_t<float>& xPoint)
+    {
+        xPtLocation = xPoint;
+    }
 };
 
 class Board_t
 {
     public:
-        Board_t(float x) : ulRows(6), ulCols(7)
+        Board_t() : ulRows(6), ulCols(7)
+        {}
+
+        bool xFillRow(uint32_t xRowNum, std::vector<Point_t<float>>& xRowVec)
         {
+            if (xRowVec.size() >= (ulCols) || xRowVec.size() < 0)
+            {
+                return false;
+            }
             xChips.resize(ulRows * ulCols);
+            for (auto xColElem: xRowVec)
+            {
+                Chip_t xChip(xColElem);
+                xChips.push_back(xChip);
+            }
+            return true;
         }
 
-    private:
+        static void vPrintChips(Board_t& xBoard)
+        {
+            uint32_t ulIdx = 0;
+            for (auto& xChip : xBoard.xChips)
+            {
+//                std::cout << xChip.xPtLocation.xY << xChip.xPtLocation.xX << " ";
+                if (ulIdx++ % xBoard.ulCols == 0)
+                {
+//                    std::cout << std::endl;
+                }
+            }
+       }
         std::vector<Chip_t> xChips;
+
+    private:
+        std::map<uint32_t, std::string> xStrMap;
+//        std::vector<Chip_t> xChips;
         uint32_t ulRows;
         uint32_t ulCols;
 };
 
-template<typename T>
-void xPointsOnLine(std::tuple<T, T>& xPtA, std::tuple<T, T>& xPtB,
-              int xNumPts, std::vector<Point_t>& xPointVec)
+
+static void xPointsOnLine(Point_t<float> xPtA, Point_t<float> xPtB,
+                          int xNumPts, std::vector<Point_t<float>>& xPointVec)
 {
-    float xX1 = std::get<0>(xPtA);
-    float xY1 = std::get<1>(xPtA);
-    float xX2 = std::get<0>(xPtB);
-    float xY2 = std::get<1>(xPtB);
-    float xXDistFull = xX2 - xX1;
-    float xYDistFull = xY2 - xY2;
-    float xXDistInc = xXDistFull / (xNumPts-1);
-    float xYDistInc = xYDistFull / (xNumPts-1);
+    float xXDistInc = (xPtB.xX - xPtA.xX) / (xNumPts-1);
+    float xYDistInc = (xPtB.xY - xPtA.xY) / (xNumPts-1);
     size_t xIdx = -1;
-    xPointVec.assign(xNumPts, Point_t(xX1, xY1));
+    xPointVec.assign(xNumPts, xPtA);
     std::transform(xPointVec.begin(), xPointVec.end(), xPointVec.begin(),
-            [&](Point_t xPoint) {
+            [&](Point_t<float> xPoint) {
         xIdx++;
-        return xPoint += Point_t(xIdx * xXDistInc, xIdx * xYDistInc);
+        return xPoint += Point_t<float>(xIdx * xXDistInc, xIdx * xYDistInc);
     });
 }
 
@@ -348,4 +419,5 @@ void xPointsOnLine(std::tuple<T, T>& xPtA, std::tuple<T, T>& xPtB,
 } // namespace team9
 
 #endif
+
 
