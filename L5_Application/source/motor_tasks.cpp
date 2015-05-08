@@ -2,6 +2,7 @@
 #include "printf_lib.h"
 #include "utilities.h"
 #include "shared_handles.h" // shared_MotorQueue
+#include <stdio.h>
 
 namespace team9
 {
@@ -10,24 +11,27 @@ MotorTask_t::MotorTask_t (uint8_t ucPriority) :
         scheduler_task("MotorSlave", 512 * 8, ucPriority),
         xPWM_DIR(P1_20), xPWM_EN(P1_23), ulSysClk(48000000)
 {
-    QueueHandle_t xQHandle = xQueueCreate(1, sizeof(xMotorCommand_t));
-    addSharedObject(shared_MotorQueue, xQHandle);
+    QueueHandle_t xQHandleRX = xQueueCreate(1, sizeof(xMotorCommand_t));
+    QueueHandle_t xQueueHandleTX = xQueueCreate(1, sizeof(bool));
+    addSharedObject(shared_MotorQueueRX, xQHandleRX);
+    addSharedObject(shared_MotorQueueTX, xQueueHandleTX);
     ulSysClk = sys_get_cpu_clock();
     vInitGPIO();
     vInitPWM();
-    ulSetFrequency(1);
+    ulSetFrequency(motor_freq);
 }
 
 void MotorTask_t::vInitGPIO()
 {
     xPWM_EN.setAsInput();
     xPWM_EN.enableOpenDrainMode();
-    xPWM_EN.setHigh();
+    xPWM_EN.setLow();
     delay_ms(1000);
     xPWM_DIR.setAsInput();
     xPWM_DIR.enableOpenDrainMode();
     xPWM_DIR.setLow();
     delay_ms(1000);
+    //xPWM_EN.setLOW();
 }
 
 void MotorTask_t::vInitPWM()
@@ -42,27 +46,30 @@ void MotorTask_t::vInitPWM()
 
 bool MotorTask_t::run(void *p)
 {
-    xMotorCommand_t xMotorCommand;
-    if (xQueueReceive(getSharedObject(shared_MotorQueue),
-                      &xMotorCommand,
+    xMotorCommand_t xMotorCommandRX;
+    bool xMotorCommandTX = true;
+    if (xQueueReceive(getSharedObject(shared_MotorQueueRX),
+                      &xMotorCommandRX,
                       portMAX_DELAY))
     {
         xPWM_EN.setHigh();
         delay_ms(10);
-        xPWM_DIR.set(xMotorCommand.eDirection == eDirection_t::LEFT ? true : false);
+        xPWM_DIR.set(xMotorCommandRX.eDirection == eDirection_t::LEFT ? true : false);
         delay_ms(10);
-        uint32_t ulCyclesPerStep = ulSetFrequency(1);
+        uint32_t ulCyclesPerStep = ulSetFrequency(motor_freq);
         vStartCounter();
-        vPollEnd(ulCyclesPerStep, xMotorCommand);
+        vPollEnd(ulCyclesPerStep, xMotorCommandRX);
         xPWM_DIR.setLow();
         xPWM_EN.setLow();
+        // Indicate we've finished.
+        xQueueSend(getSharedObject(shared_MotorQueueTX), &xMotorCommandTX, portMAX_DELAY);
     }
     return true;
 }
 
-uint32_t MotorTask_t::ulSetFrequency(uint32_t ulFreqHz)
+uint32_t MotorTask_t::ulSetFrequency(float ulFreqHz)
 {
-    uint32_t ulCntFreq = ulSysClk / ulPclkDivider;  // 6MHz iff 48MHz / 8
+    float ulCntFreq = (1.0 * ulSysClk) / ulPclkDivider;  // 6MHz iff 48MHz / 8
     uint32_t ulLimitReg = ulCntFreq / (uxStepsPerRot * ulFreqHz) + 0.5;
     LPC_MCPWM->MCPER0 = ulLimitReg;                 // Setting Limit register
     LPC_MCPWM->MCPW0 = ulLimitReg / 2.0 + 0.5;      // Setting Match register

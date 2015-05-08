@@ -25,6 +25,9 @@
 
 #include "command_handler.hpp"
 
+// Top level Task controlling the game.
+CMD_HANDLER_FUNC(gameHandler);
+
 /// Handler for motor control
 CMD_HANDLER_FUNC(motorHandler);
 

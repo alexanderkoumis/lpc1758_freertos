@@ -23,6 +23,7 @@
 
 #include "FreeRTOS.h"
 #include "task.h"               // uxTaskGetSystemState()
+#include "tasks.hpp"
 
 #include "command_handler.hpp"  // CMD_HANDLER_FUNC()
 #include "rtc.h"                // Set and Get System Time
@@ -48,12 +49,42 @@
 
 #include "tasks.hpp"
 
+#include "printf_lib.h"
+
+CMD_HANDLER_FUNC(gameHandler) {
+
+    using namespace team9;
+
+    QueueHandle_t xGameQueueRX;
+    xGameCommand_t game_c;
+    static const char *pcUsageStr = "gameplay (debug|compete) <column>";
+
+    char *pcGameType = NULL;
+    char *pcColumn = NULL;
+    int num_tokens = cmdParams.tokenize(" ", 2, &pcGameType, &pcColumn);
+
+
+    uint8_t xColumn = atoi(pcColumn);
+    xGameQueueRX = scheduler_task::getSharedObject(shared_GameQueueRX);
+    if(strcmp(pcGameType, "debug") == 0) {
+        game_c.Load(eGame_t::debug, xColumn);
+    }
+    if(strcmp(pcGameType, "compete") == 0) {
+        game_c.Load(eGame_t::compete, xColumn);
+    }
+    xQueueSend(xGameQueueRX, &game_c, portMAX_DELAY);
+    return true;
+}
+
 CMD_HANDLER_FUNC(motorHandler)
 {
     using namespace team9;
 
     xMotorCommand_t xMotorCommand;
-    QueueHandle_t xMotorQueue;
+    QueueHandle_t xMotorQueueRX;
+    QueueHandle_t xMotorQueueTX;
+    bool xMotorBool;
+    bool wait = true;
 
     static const char* pcUsageStr = "motor (left|right) <revolutions>";
 
@@ -62,8 +93,7 @@ CMD_HANDLER_FUNC(motorHandler)
     float xRotations = 0.0;
 
     int num_tokens = cmdParams.tokenize(" ", 2, &pcRotateDir, &pcRotateAmt);
-    if (num_tokens < 2)
-    {
+    if (num_tokens < 2) {
         output.printf("Error: At least two args are required\n%s\n", pcUsageStr);
         return false;
     }
@@ -81,8 +111,16 @@ CMD_HANDLER_FUNC(motorHandler)
     }
     output.printf("Direction: %s\nNumber of cycles: %f\n",
                   pcRotateDir, pcRotateAmt);
-    xMotorQueue = scheduler_task::getSharedObject(shared_MotorQueue);
-    xQueueSend(xMotorQueue, &xMotorCommand, portMAX_DELAY);
+    xMotorQueueRX = scheduler_task::getSharedObject(shared_MotorQueueRX);
+    xQueueSend(xMotorQueueRX, &xMotorCommand, portMAX_DELAY);
+
+    xMotorQueueTX = scheduler_task::getSharedObject(shared_MotorQueueTX);
+    while(wait) {
+        if(xQueueReceive(xMotorQueueTX, &xMotorBool, portMAX_DELAY)) {
+            wait = false;
+            //output.printf("On Top of the Column\n");
+        }
+    }
     return true;
 }
 

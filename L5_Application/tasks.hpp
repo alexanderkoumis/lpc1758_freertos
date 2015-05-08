@@ -34,6 +34,8 @@
 
 #include "gpio.hpp"
 
+#include "lpc_pwm.hpp"
+
 /**
  * Terminal task is our UART0 terminal that handles our commands into the board.
  * This also saves and restores the "disk" telemetry.  Disk telemetry variables
@@ -88,6 +90,33 @@ struct xMotorCommand_t
 	float xRotations;
 };
 
+
+enum eGame_t {debug, compete};
+
+struct xGameCommand_t {
+        xGameCommand_t(void) : eGame(debug), xColumn(0) {}
+        void Load(eGame_t game_t, int column) {
+            eGame = game_t;
+            xColumn = column;
+        }
+        eGame_t eGame;
+        uint8_t xColumn;
+};
+
+class GameTask_t : public scheduler_task
+{
+    public:
+        GameTask_t (uint8_t priority);
+        bool run(void *p);
+    private:
+        PWM *my_servo;
+        //PWM my_servo(PWM::pwm2, 50);
+        const float closed_pwm = 5.5;
+        const float open_pwm = 11.5;
+        void run_servo(int drop_count);
+        void run_stepper(uint8_t insert_column);
+};
+
 class MotorTask_t : public scheduler_task
 {
 	public:
@@ -96,7 +125,7 @@ class MotorTask_t : public scheduler_task
 
 	private:
 		void vPollEnd(uint32_t ulLimitReg, xMotorCommand_t& xMotorCommand);
-        uint32_t ulSetFrequency(uint32_t ulFreqHz);
+        uint32_t ulSetFrequency(float ulFreqHz);
 		void vInitPWM();
 		void vInitGPIO();
 		void vStopCounter();
@@ -106,6 +135,7 @@ class MotorTask_t : public scheduler_task
 		GPIO xPWM_EN;
         const int ulPclkDivider = 8;
         const int uxStepsPerRot = 400;
+        float motor_freq = 0.5;
         unsigned int ulSysClk;
 };
 

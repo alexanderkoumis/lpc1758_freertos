@@ -73,6 +73,7 @@ bool terminalTask::taskEntry()
 
     // Bluetooth handler
     cp.addHandler(motorHandler, "motor", "Specify direction to spin and number of revolutions. Ex: motor left 2.5");
+    cp.addHandler(gameHandler, "gameplay", "Specify which column to insert into and whether we're in debug or competition mode.");
 
     // System information handlers
     cp.addHandler(taskListHandler, "info",    "Task/CPU Info.  Use 'info 200' to get CPU during 200ms");
@@ -326,7 +327,7 @@ terminalTask::cmdChan_t terminalTask::getCommand(void)
             if (mCmdIface[idx].iodev->isReady() && mCmdIface[idx].iodev->getChar(&c, 0))
             {
                 ret = mCmdIface[idx];
-                handleEchoAndBackspace(&ret, c);
+                terminalTask::handleEchoAndBackspace(&ret, c);
 
                 mCmdTimer.reset();
                 gotChar = true;
