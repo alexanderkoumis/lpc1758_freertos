@@ -45,21 +45,21 @@ class PixyDisplay_t
             }
         }
 
-        void vPrint()
-        {
-            for (size_t i = 0; i < xScaledRows; ++i)
-            {
-                static std::string xRowStr = "";
-                for (size_t j = 0; j < xScaledCols; ++j)
-                {
-                    xRowStr += xVal(i, j);
-                }
-                std::cout << xRowStr << "\n\r";
-                xRowStr.clear();
-            }
-            std::cout << "\n\r" << std::endl;
-            xPointVec.clear();
-        }
+//        void vPrint()
+//        {
+//            for (size_t i = 0; i < xScaledRows; ++i)
+//            {
+//                static std::string xRowStr = "";
+//                for (size_t j = 0; j < xScaledCols; ++j)
+//                {
+//                    xRowStr += xVal(i, j);
+//                }
+//                std::cout << xRowStr << "\n\r";
+//                xRowStr.clear();
+//            }
+//            std::cout << "\n\r" << std::endl;
+//            xPointVec.clear();
+//        }
 
     private:
 

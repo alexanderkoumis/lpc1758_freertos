@@ -12,7 +12,14 @@ class PixyMouth_t
 {
 	public:
 		PixyMouth_t()
+		{}
+
+		bool xEmitUpdate(int lColUpdate)
 		{
+		    if (lColUpdate < 0)
+		    {
+		        return false;
+		    }
 		}
 };
 

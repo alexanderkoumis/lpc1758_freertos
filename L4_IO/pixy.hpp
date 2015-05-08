@@ -20,15 +20,15 @@ namespace pixy
 class Pixy_t
 {
 	public:
-        enum State_t {CALIB, RUN, ERROR} eState;
+        enum State_t {CALIB, RUN, UPDATE, ERROR} eState;
 
         Pixy_t () {}
 
-		Pixy_t (uint32_t ulChipsAtATime, uint32_t ulChipsToCalib,
+		Pixy_t (uint32_t ulChipsAtATime, uint32_t ulChipsToCalibCorners,
 		        ChipColor_t eColorCalib) :
 				eState(CALIB),
 				pPixyBrain(new pixy::PixyBrain_t(Dims_t(320, 200), eColorCalib,
-				                                 ulChipsToCalib)),
+				                                 ulChipsToCalibCorners)),
 				pPixyEyes(new pixy::PixyEyes_t(ulChipsAtATime)),
 				pPixyMouth(new pixy::PixyMouth_t),
 				pPixyDisplay(new pixy::PixyDisplay_t("#", 320, 200)),
@@ -40,6 +40,7 @@ class Pixy_t
 
 		void vAction()
 		{
+		    std::cout << "State: " << xStringMap[eState] << std::endl;
 		    xFuncMap->vResponse(eState)();
 		}
 
@@ -52,14 +53,14 @@ class Pixy_t
 			{
 				if (pPixyBrain->vCalibBoard(pPixyEyes.get()))
 				{
-				    pPixyBrain->vPrintChips();
-//					std::cout << "Calibrated board" << std::endl
-//					          << pPixyBrain->xGetCorners()
-//							  << std::endl;
+				    std::cout << "Corners: " << std::endl
+				              << pPixyBrain->pBoard->xCorners << std::endl
+				              << "Points: " << std::endl;
+				    pPixyBrain->pBoard->vPrintChips();
 //				    std::vector<Point_t> xPoints;
 //					pPixyDisplay->vUpdate(xPoints, true);
 //					pPixyDisplay->vPrint();
-					eState = RUN;
+					eState = CALIB;
 				}
 				else
 				{
@@ -69,16 +70,33 @@ class Pixy_t
 
 			xFuncMap->vSetHandler(RUN, [&] ()
 			{
+			    switch(pPixyBrain->lSampleChips(pPixyEyes.get()))
+			    {
+			        case 0:
+			        {
+			            std::cout << "No chips moved" << std::endl;
+			        }
+			        case 1:
+			        {
 
-
-
+			        }
+			    }
 			    eState = CALIB;
 			});
+
+			xFuncMap->vSetHandler(UPDATE, [&] ()
+            {
+			    if (!pPixyMouth->xEmitUpdate(pPixyBrain->lGetUpdate()))
+                {
+			        eState = ERROR;
+                };
+			    eState = RUN;
+            });
 
 			xFuncMap->vSetHandler(ERROR, [&] ()
 			{
 				std::cout << pPixyBrain->xGetErrors() << std::endl;
-				eState = ERROR;
+				eState = CALIB;
 			});
 		}
 
@@ -96,6 +114,7 @@ class Pixy_t
 
         std::map<State_t, std::string> xStringMap;
         std::unique_ptr<FuncMap_t<State_t, void>> xFuncMap;
+
 
 };
 

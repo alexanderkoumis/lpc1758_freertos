@@ -18,13 +18,13 @@ namespace pixy
 class PixyBrain_t
 {
     public:
-
         PixyBrain_t(Dims_t xCamDims_arg, ChipColor_t eColorCalib_arg,
-                uint32_t ulChipsToCalib_arg) :
-                xCamDims(xCamDims_arg), xCamDimsHalf(xCamDims / 2),
+                    uint32_t ulChipsToCalib_arg) :
+                pBoard(new Board_t),
+                xCamDims(xCamDims_arg),
+                xCamDimsHalf(xCamDims / 2),
                 eColorCalib(eColorCalib_arg),
-                ulChipsToCalib(ulChipsToCalib_arg),
-                pBoard(new Board_t)
+                ulChipsToCalib(ulChipsToCalib_arg)
         {}
 
         bool vCalibBoard(PixyEyes_t* pPixyEyes)
@@ -44,22 +44,57 @@ class PixyBrain_t
                         Quadrant_t xQuadrant = xComputeQuadrant(xBlock.xPoint);
                         if (xQuadrant < 4)
                         {
-                            vUpdateCorners(xCorners, xQuadrant, xBlock);
+                            xCorners.vUpdate(xQuadrant, xBlock);
                         }
                     }
                 }
             }
-            if (xCorners())
+            switch(pBoard->vBuildGrid(xCorners))
             {
-                xLastCorners = xCorners;
-                if (vBuildGrid(xCorners))
+                case 0:
                 {
-                    F();
+                    pBoard->xCorners = xCorners;
                     return true;
                 }
+                case 1:
+                {
+                    xErrorQueue.push("TLBL or TRBR lines had invalid # of pts");
+                    break;
+                }
+                case 2:
+                {
+                    std::ostringstream xOss;
+                    xOss << "Invalid # of chips after instantiation. "
+                         << "Expected: " << pBoard->ulExpectedTotalChips()
+                         << ", Actual: " << pBoard->ulActualTotalChips();
+                    xErrorQueue.push(xOss.str());
+                    break;
+                }
             }
-            xErrorQueue.push("Poorly calibrated corners");
+            xErrorQueue.push("Problem building grid");
             return false;
+        }
+
+        int lSampleChips(PixyEyes_t* pPixyEyes)
+        {
+            std::vector<Block_t> xBlocks;
+            pPixyEyes->ulSeenBlocks(xBlocks);
+            switch (pBoard->lUpdate(xBlocks))
+            {
+
+            }
+            return 0;
+        }
+
+        int lGetUpdate()
+        {
+            if (xUpdateQueue.empty())
+            {
+                xErrorQueue.push("I have no updates for you! "
+                                 "What do you want??");
+                return -1;
+            }
+            return 0;
         }
 
         std::string xGetErrors()
@@ -68,36 +103,16 @@ class PixyBrain_t
             std::ostringstream oss;
             while (!xErrorQueue.empty())
             {
-                oss << "Error #" << xErrIdx << ": "
+                oss << "Error #" << xErrIdx++ << ": "
                     << xErrorQueue.front() << "\n";
                 xErrorQueue.pop();
             }
             return oss.str();
         }
 
-        Corners_t xGetCorners()
-        {
-            return xLastCorners;
-        }
-
-        void vPrintChips()
-        {
-            Board_t::vPrintChips(*pBoard);
-        }
-
-    private:
-
         std::unique_ptr<Board_t> pBoard;
 
-        std::queue<std::string> xErrorQueue;
-
-        Corners_t xLastCorners;
-        Dims_t xCamDims;
-        Dims_t xCamDimsHalf;
-        ChipColor_t eColorCalib;
-        uint32_t ulChipsToCalib;
-
-        std::string sLastError;
+    private:
 
         __inline Quadrant_t xComputeQuadrant(Point_t<uint16_t>& xPoint)
         {
@@ -132,33 +147,19 @@ class PixyBrain_t
             return ERROR;
         }
 
-        __inline void vUpdateCorners(Corners_t& xCorners,
-                                     Quadrant_t& xQuadrant, Block_t& xBlock)
-        {
-            xCorners.xStats[2*xQuadrant].vUpdate(xBlock.xPoint.xY);
-            xCorners.xStats[2*xQuadrant+1].vUpdate(xBlock.xPoint.xX);
-        }
 
-        bool vBuildGrid (Corners_t& xCorners)
-        {
-            std::vector<Point_t<float>> xTLBL;
-            std::vector<Point_t<float>> xTRBR;
-            xPointsOnLine(xCorners(TOP_LEFT), xCorners(BOT_LEFT), 6, xTLBL);
-            xPointsOnLine(xCorners(TOP_RIGHT), xCorners(BOT_RIGHT), 6, xTRBR);
-            size_t xRowIdx = 0;
-            for (auto& xLPoint : xTLBL)
-            {
-                std::vector<Point_t<float>> xMID;
-                xPointsOnLine(xLPoint, xTRBR[xRowIdx], 7, xMID);
 
-                if (!pBoard->xFillRow(xRowIdx++, xMID))
-                {
-                    xErrorQueue.push("Row vector invalid size");
-                    return false;
-                }
-            }
-             return true;
-        }
+        std::queue<std::string> xErrorQueue;
+        std::queue<int> xUpdateQueue;
+
+        Corners_t xLastCorners;
+        Dims_t xCamDims;
+        Dims_t xCamDimsHalf;
+
+        ChipColor_t eColorCalib;
+        uint32_t ulChipsToCalib;
+
+        std::string sLastError;
 };
 
 } // namespace pixy
