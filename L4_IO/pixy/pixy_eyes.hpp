@@ -7,7 +7,8 @@
 #include "utilities.h"
 #include "printf_lib.h"
 
-#include "pixy/pixy_common.hpp"
+#include "pixy/common.hpp"
+#include "pixy/common/block.hpp"
 
 namespace team9
 {

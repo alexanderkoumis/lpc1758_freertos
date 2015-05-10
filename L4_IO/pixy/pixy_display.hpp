@@ -6,7 +6,7 @@
 #include <iostream>
 #include <printf_lib.h>
 
-#include "pixy_common.hpp"
+#include "common.hpp"
 
 namespace team9
 {

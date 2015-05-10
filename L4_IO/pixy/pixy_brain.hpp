@@ -7,8 +7,11 @@
 #include <algorithm>
 
 #include "pixy.hpp"
-#include "pixy/pixy_common.hpp"
 #include "pixy/pixy_eyes.hpp"
+#include "pixy/common.hpp"
+#include "pixy/common/board.hpp"
+#include "pixy/common/block.hpp"
+#include "pixy/common/dims.hpp"
 
 namespace team9
 {
@@ -22,7 +25,7 @@ class PixyBrain_t
                     uint32_t ulChipsToCalib_arg) :
                 pBoard(new Board_t),
                 xCamDims(xCamDims_arg),
-                xCamDimsHalf(xCamDims / 2),
+                xCamDimsHalf(xCamDims.usRows/2, xCamDims.usCols/2),
                 eColorCalib(eColorCalib_arg),
                 ulChipsToCalib(ulChipsToCalib_arg)
         {}
@@ -119,8 +122,7 @@ class PixyBrain_t
             if (xPoint.xX < 0 || xPoint.xY < 0 ||
                 xPoint.xX >= xCamDims.usCols || xPoint.xY >= xCamDims.usRows)
             {
-                xErrorQueue.push("Chip out of bounds: " +
-                                 Point_t<uint16_t>::xPointStr(xPoint));
+                xErrorQueue.push("Chip out of bounds: " + xPoint.xStr());
                 return ERROR;
             }
             else if (xPoint.xX <= xCamDimsHalf.usCols &&
@@ -166,3 +168,4 @@ class PixyBrain_t
 } // namespace team9
 
 #endif
+

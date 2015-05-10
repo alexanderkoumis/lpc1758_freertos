@@ -5,8 +5,9 @@
 #include <map>
 #include <functional>
 
-#include "pixy/pixy_config.hpp"
-#include "pixy/pixy_common.hpp"
+#include "pixy/config.hpp"
+#include "pixy/common.hpp"
+#include "pixy/common/func_map.hpp"
 #include "pixy/pixy_brain.hpp"
 #include "pixy/pixy_eyes.hpp"
 #include "pixy/pixy_mouth.hpp"
@@ -27,11 +28,11 @@ class Pixy_t
 		Pixy_t (uint32_t ulChipsAtATime, uint32_t ulChipsToCalibCorners,
 		        ChipColor_t eColorCalib) :
 				eState(CALIB),
-				pPixyBrain(new pixy::PixyBrain_t(Dims_t(320, 200), eColorCalib,
+				pPixyBrain(new pixy::PixyBrain_t(Dims_t(200, 320), eColorCalib,
 				                                 ulChipsToCalibCorners)),
 				pPixyEyes(new pixy::PixyEyes_t(ulChipsAtATime)),
 				pPixyMouth(new pixy::PixyMouth_t),
-				pPixyDisplay(new pixy::PixyDisplay_t("#", 320, 200)),
+				pPixyDisplay(new pixy::PixyDisplay_t("#", 200, 320)),
 				xFuncMap(new FuncMap_t<State_t, void>)
 		{
 			vInitMapFunc();
@@ -60,7 +61,7 @@ class Pixy_t
 //				    std::vector<Point_t> xPoints;
 //					pPixyDisplay->vUpdate(xPoints, true);
 //					pPixyDisplay->vPrint();
-					eState = CALIB;
+					eState = RUN;
 				}
 				else
 				{
@@ -74,14 +75,14 @@ class Pixy_t
 			    {
 			        case 0:
 			        {
-			            std::cout << "No chips moved" << std::endl;
+			            pPixyBrain->pBoard->vPrintChips(Board_t::COLOR);
 			        }
 			        case 1:
 			        {
 
 			        }
 			    }
-			    eState = CALIB;
+			    eState = RUN;
 			});
 
 			xFuncMap->vSetHandler(UPDATE, [&] ()

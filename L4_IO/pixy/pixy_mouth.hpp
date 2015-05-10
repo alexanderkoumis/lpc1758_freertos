@@ -1,7 +1,7 @@
 #ifndef PIXY_MOUTH_HPP
 #define PIXY_MOUTH_HPP
 
-#include "pixy/pixy_common.hpp"
+#include "pixy/common.hpp"
 
 namespace team9
 {
@@ -20,6 +20,7 @@ class PixyMouth_t
 		    {
 		        return false;
 		    }
+		    return true;
 		}
 };
 
