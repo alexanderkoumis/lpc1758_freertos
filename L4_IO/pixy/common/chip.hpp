@@ -12,7 +12,12 @@ namespace pixy
 class Chip_t
 {
     public:
-        Chip_t(float xPointEMA_alpha)
+        Chip_t(float xPointEMA_alpha) :
+                xChipColor(ChipColor_t::NONE),
+                xLastChipColor(ChipColor_t::NONE),
+                bNoneGreatest(true),
+                bGreenGreatest(false),
+                bRedGreatest(false)
         {
             xPtLocation.vSetAlpha(xPointEMA_alpha);
         }
@@ -22,35 +27,60 @@ class Chip_t
             xPtLocation.vReset();
         }
 
-        int lMaxChip()
+        ChipColor_t xMaxChip()
         {
+            return xChipColor;
+        }
+
+        std::string xStr()
+        {
+            char buff[32];
+            snprintf(buff, 32, "%1.1f/%1.1f/%1.1f",
+                    xChipColorNone.xMean(),
+                    xChipColorGreen.xMean(),
+                    xChipColorRed.xMean());
+            return buff;
+        }
+
+        void vUpdateFreq(size_t xNoneFreq, size_t xGreenFreq, size_t xRedFreq)
+        {
+            xChipColorNone.vUpdate(xNoneFreq);
+            xChipColorGreen.vUpdate(xGreenFreq);
+            xChipColorRed.vUpdate(xRedFreq);
+
             float xIsNone = xChipColorNone.xMean();
             float xIsGreen = xChipColorGreen.xMean();
             float xIsRed = xChipColorRed.xMean();
-            bool bGreenGreatest = (xIsGreen > xIsNone) && (xIsGreen > xIsRed);
-            bool bRedGreatest = (xIsRed > xIsNone) && (xIsRed > xIsGreen);
-            bool bNoneGreatest = !bGreenGreatest && !bRedGreatest;
-            if (bNoneGreatest) return NONE;
-            if (bGreenGreatest) return GREEN;
-            if (bRedGreatest) return RED;
+
+            bGreenGreatest = (xIsGreen > xIsNone) && (xIsGreen > xIsRed);
+            bRedGreatest = (xIsRed > xIsNone) && (xIsRed > xIsGreen);
+            bNoneGreatest = !bGreenGreatest && !bRedGreatest;
+
+            xLastChipColor = xChipColor;
+            if (bNoneGreatest) xChipColor = NONE;
+            if (bGreenGreatest) xChipColor = GREEN;
+            if (bRedGreatest) xChipColor = RED;
         }
 
-        static void vUpdate(Chip_t& xChip, uint16_t usSignature)
+        bool bChanged()
         {
-            xChip.xChipColorNone.vUpdate(usSignature == NONE);
-            xChip.xChipColorGreen.vUpdate(usSignature == GREEN);
-            xChip.xChipColorRed.vUpdate(usSignature == RED);
+            return xChipColor != xLastChipColor;
         }
-
 
         PointEMA_t xPtLocation;
 
     private:
+        StatEMA_t xChipColorNone;
+        StatEMA_t xChipColorGreen;
+        StatEMA_t xChipColorRed;
 
+        ChipColor_t xChipColor;
+        ChipColor_t xLastChipColor;
 
-        StatSMA_t xChipColorNone;
-        StatSMA_t xChipColorGreen;
-        StatSMA_t xChipColorRed;
+        bool bNoneGreatest;
+        bool bGreenGreatest;
+        bool bRedGreatest;
+
 
 };
 

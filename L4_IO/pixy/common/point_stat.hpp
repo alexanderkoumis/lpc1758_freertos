@@ -45,9 +45,9 @@ class PointStat_t
                                              fix16_to_float(xNewMean.x));
         }
 
-
         v2d xNewMean;
         v2d xNewStdDev;
+
     protected:
         v2d xOldMean;
         v2d xOldStdDev;
@@ -78,8 +78,8 @@ class PointSMA_t : public PointStat_t
                 v2d_sub(&xDx, &xNewVec, &xNewMean);
                 v2d_sub(&xDxx, &xNewVec, &xOldMean);
 
-                xTempStdDev.y = xDx.y * xDxx.y; // Don't know how to do this
-                xTempStdDev.x = xDx.x * xDxx.x; // with libfixedmatrix library
+                xTempStdDev.y = fix16_mul(xDx.y, xDxx.y);
+                xTempStdDev.x = fix16_mul(xDx.x, xDxx.x);
 
                 v2d_add(&xNewStdDev, &xOldStdDev, &xTempStdDev);
 

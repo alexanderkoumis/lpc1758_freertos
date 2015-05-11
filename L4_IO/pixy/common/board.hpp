@@ -1,6 +1,11 @@
 #ifndef BOARD_HPP
 #define BOARD_HPP
 
+#include <vector>
+#include <utility>
+#include <queue>
+
+#include "pixy/config.hpp"
 #include "pixy/common.hpp"
 #include "pixy/common/chip.hpp"
 #include "pixy/common/corners.hpp"
@@ -17,7 +22,10 @@ class Board_t
 
         enum PrintMode_t {LOCATION, COLOR, OPENCV_META};
 
-        Board_t() : ulRows(6), ulCols(7), xPointEMA_alpha(0.2), xTolerance(0.75)
+        Board_t() :
+            ulRows(6), ulCols(7),
+            xPointEMA_alpha(CHIP_LOC_EMA_ALPHA),
+            xTolerance(CHIP_PROXIM_TOLERANCE)
         {
             vInitStringMap();
         }
@@ -87,36 +95,94 @@ class Board_t
             return (xChips.size() == ulRows * ulCols) ? 0 : 2;
         }
 
-        int lUpdate(std::vector<Block_t>& xBlocks)
+        void vCalcSeenChips(
+                std::vector<Block_t>& xBlocks,
+                std::vector<std::pair<size_t, ChipColor_t>>& xSeenChips)
         {
-            // TODO: Find projection matrix during xFillBoard(), use 2D
-            // binary search on corrected points to locate closest
-            uint32_t ulChipIdx = 0;
             float xMaxDist = (float)ulDistBetweenCols * xTolerance;
-
-            for (auto& xChip : xChips)
+            for (size_t xI = 0; xI < xChips.size(); ++xI)
             {
-                Block_t xNewBlock;
-                float xMinDist = 9999;
-                for (size_t xJ = ulChipIdx+1; xJ < xBlocks.size(); ++xJ)
+                Chip_t& xChip = xChips[xI];
+                ChipColor_t xTempColor = NONE;
+                float xTempDist = 9999;
+                for (size_t xJ = 0; xJ < xBlocks.size(); ++xJ)
                 {
-                    Block_t& xBlock = xBlocks[xJ];
-                    Point_t<float> xChipPt = xChip.xPtLocation.xPoint();
-                    float xDist = Point_t<float>::xCalcDist(xChipPt,
-                                                            xBlock.xPoint);
-                    if (xDist < xMinDist)
+                    Point_t<uint16_t>& xBlockPt = xBlocks[xJ].xPoint;
+                    const Point_t<float>& xChipPt = xChip.xPtLocation.xPoint();
+                    float xDist = Point_t<float>::xCalcDist(xChipPt, xBlockPt);
+                    if (xDist < xTempDist)
                     {
-                        xNewBlock = xBlock;
-                        xMinDist = xDist;
+                        xTempColor = (ChipColor_t)xBlocks[xJ].usSignature;
+                        xTempDist = xDist;
                     }
                 }
-                if (xMinDist < xMaxDist)
-                 {
-                    Chip_t::vUpdate(xChip, xNewBlock.usSignature);
+                if (xTempDist < xMaxDist)
+                {
+                    xSeenChips.push_back(std::make_pair(xI, xTempColor));
                 }
-                ulChipIdx++;
             }
-            return 0;
+        }
+
+        void vUpdate(std::vector<std::pair<size_t, ChipColor_t>>& xSeenChips)
+        {
+            for (size_t xI = 0; xI < xChips.size(); ++xI)
+            {
+                size_t xNoneCount = 0;
+                size_t xGreenCount = 0;
+                size_t xRedCount = 0;
+                for (auto& xSeenChip : xSeenChips)
+                {
+                    if (xSeenChip.first == xI)
+                    {
+                        switch (xSeenChip.second)
+                        {
+                            case NONE: xNoneCount++; break;
+                            case GREEN: xGreenCount++; break;
+                            case RED: xRedCount++; break;
+                        }
+                    }
+                }
+                xChips[xI].vUpdateFreq(xNoneCount, xGreenCount, xRedCount);
+            }
+        }
+
+        int lChipHasChanged()
+        {
+            // -2 == No change, -1 == Multiple changed, >0 == index of change
+            int lReturnVal = -2;
+            int lCurrChanged = 0;
+            for (size_t xI = 0; xI < xChips.size(); ++xI)
+            {
+                Chip_t& xChip = xChips[xI];
+                if (xChip.bChanged())
+                {
+                    if (lCurrChanged == 0)
+                    {
+                        lReturnVal = xI;
+                    }
+                    else if (lCurrChanged == 1)
+                    {
+                        xChangedChips.push(lReturnVal);
+                        xChangedChips.push(xI);
+                        lReturnVal = -1;
+                    }
+                    else if (lCurrChanged > 1)
+                    {
+                        xChangedChips.push(xI);
+                    }
+                    lCurrChanged++;
+                }
+            }
+            return lReturnVal;
+        }
+
+        void vGetChanged(std::vector<int>& xChanged)
+        {
+            while (!xChangedChips.empty())
+            {
+                xChanged.push_back(xChangedChips.front());
+                xChangedChips.pop();
+            }
         }
 
         void vReset()
@@ -127,10 +193,11 @@ class Board_t
             }
         }
 
-        void vPrintChips(PrintMode_t xPrintStyle = LOCATION)
+        void vPrintChips(
+                PrintMode_t xPrintStyle = LOCATION,
+                const std::vector<std::pair<size_t, ChipColor_t>> xSeenChips =
+                      std::vector<std::pair<size_t, ChipColor_t>>())
         {
-            std::ostringstream xOss;
-            uint32_t ulIdx = 0;
             if (xChips.size() != ulRows * ulCols)
             {
                 std::cout << "Chip print error: Num chips: " << xChips.size()
@@ -138,40 +205,84 @@ class Board_t
                           << std::endl;
                 return;
             }
-            if (xPrintStyle == OPENCV_META)
+            switch (xPrintStyle)
             {
-                xOss << "std::vector<cv::Point2f> point_vec;\n";
-                for (auto& xChip : xChips)
-                {
-                    xOss << "point_vec.push_back("
-                         << Point_t<float>::xOpenCVPt(xChip.xPtLocation.xPoint())
-                         << ");\n";
-                }
-                std::cout << xOss.str() << std::endl;
+                case LOCATION: vLocationPrint(); break;
+                case COLOR: vColorPrint(xSeenChips); break;
+                case OPENCV_META: vOpenCVPrint(); break;
             }
-            else
+        }
+
+        void vLocationPrint()
+        {
+            std::ostringstream xOss;
+            uint32_t ulIdx = 0;
+            for (size_t xI = 0; xI < ulRows; ++xI)
+             {
+                 xOss << "Row: " << xI;
+                 for (size_t xJ = 0; xJ < ulCols; ++xJ)
+                 {
+                     xOss << " " << xChips[ulIdx++].xPtLocation.xStr();
+                     ulIdx++;
+                 }
+                 xOss << "\n";
+             }
+             std::cout << xOss.str() << std::endl;
+        }
+
+        void vColorPrint(
+                const std::vector<std::pair<size_t, ChipColor_t>> xSeenChips =
+                      std::vector<std::pair<size_t, ChipColor_t>>())
+        {
+            std::ostringstream xOss;
+            uint32_t ulIdx1 = 0;
+            uint32_t ulIdx2 = 0;
+            bool bSeenChipsEmpty = xSeenChips.empty();
+            xOss << "Col:   0 1 2 3 4 5 6";
+            xOss << ((bSeenChipsEmpty) ? "\n" : "     0 1 2 3 4 5 6\n");
+            for (size_t xI = 0; xI < ulRows; ++xI)
             {
-                xOss << "Col:   0 1 2 3 4 5 6\n";
-                for (size_t xI = 0; xI < ulRows; ++xI)
+                xOss << "Row " << xI << ":";
+                if (!bSeenChipsEmpty)
                 {
-                    xOss << "Row: " << xI;
+                    //// Print incoming chip colors
                     for (size_t xJ = 0; xJ < ulCols; ++xJ)
                     {
-                        if (xPrintStyle == COLOR)
+                        ChipColor_t xChipColor = NONE;
+                        for (auto& xChipColorPair : xSeenChips)
                         {
-                            ChipColor_t xChipColor = (ChipColor_t)xChips[ulIdx].lMaxChip();
-                            xOss << " " << xStringMap[xChipColor];
+                            if (xChipColorPair.first == ulIdx1)
+                            {
+                                xChipColor = xChipColorPair.second;
+                            }
                         }
-                        else
-                        {
-                            xOss << " " << xChips[ulIdx].xPtLocation.xStr();
-                        }
-                        ulIdx++;
+                        ulIdx1++;
+                        xOss << " " << xStringMap[xChipColor];
                     }
-                    xOss << "\n";
+                    xOss << "     ";
                 }
-                std::cout << xOss.str() << std::endl;
+                //// Print known chip colors
+                for (size_t xJ = 0; xJ < ulCols; ++xJ)
+                {
+                    ChipColor_t xChipColor = xChips[ulIdx2++].xMaxChip();
+                    xOss << " " << xStringMap[xChipColor];
+                }
+                xOss << "\n";
             }
+            std::cout << xOss.str() << std::endl;
+        }
+
+        void vOpenCVPrint()
+        {
+            std::ostringstream xOss;
+            xOss << "std::vector<cv::Point2f> point_vec;\n";
+            for (auto& xChip : xChips)
+            {
+                xOss << "point_vec.push_back("
+                     << Point_t<float>::xOpenCVPt(
+                        xChip.xPtLocation.xPoint()) << ");\n";
+            }
+            std::cout << xOss.str() << std::endl;
         }
 
         uint32_t ulExpectedTotalChips()
@@ -197,6 +308,7 @@ class Board_t
 
         std::vector<Chip_t> xChips;
         std::map<ChipColor_t, std::string> xStringMap;
+        std::queue<int> xChangedChips;
         uint32_t ulRows;
         uint32_t ulCols;
         uint32_t ulDistBetweenRows;

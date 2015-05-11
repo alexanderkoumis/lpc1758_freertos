@@ -11,7 +11,6 @@
 #include "pixy/common.hpp"
 #include "pixy/common/board.hpp"
 #include "pixy/common/block.hpp"
-#include "pixy/common/dims.hpp"
 
 namespace team9
 {
@@ -21,13 +20,12 @@ namespace pixy
 class PixyBrain_t
 {
     public:
-        PixyBrain_t(Dims_t xCamDims_arg, ChipColor_t eColorCalib_arg,
-                    uint32_t ulChipsToCalib_arg) :
+        PixyBrain_t(ChipColor_t eColorCalib_arg, uint32_t ulChipsToCalib_arg) :
                 pBoard(new Board_t),
-                xCamDims(xCamDims_arg),
-                xCamDimsHalf(xCamDims.usRows/2, xCamDims.usCols/2),
                 eColorCalib(eColorCalib_arg),
-                ulChipsToCalib(ulChipsToCalib_arg)
+                ulChipsToCalib(ulChipsToCalib_arg),
+                usCamRows(200), usCamCols(320),
+                usCamRowsHalf(usCamRows/2), usCamColsHalf(usCamCols/2)
         {}
 
         bool vCalibBoard(PixyEyes_t* pPixyEyes)
@@ -52,6 +50,7 @@ class PixyBrain_t
                     }
                 }
             }
+
             switch(pBoard->vBuildGrid(xCorners))
             {
                 case 0:
@@ -81,12 +80,11 @@ class PixyBrain_t
         int lSampleChips(PixyEyes_t* pPixyEyes)
         {
             std::vector<Block_t> xBlocks;
+            std::vector<std::pair<size_t, ChipColor_t>> xSeenChips;
             pPixyEyes->ulSeenBlocks(xBlocks);
-            switch (pBoard->lUpdate(xBlocks))
-            {
-
-            }
-            return 0;
+            pBoard->vCalcSeenChips(xBlocks, xSeenChips);
+            pBoard->vUpdate(xSeenChips);
+            return pBoard->lChipHasChanged();
         }
 
         int lGetUpdate()
@@ -117,31 +115,28 @@ class PixyBrain_t
 
     private:
 
-        __inline Quadrant_t xComputeQuadrant(Point_t<uint16_t>& xPoint)
+        inline Quadrant_t xComputeQuadrant(Point_t<uint16_t>& xPoint)
         {
-            if (xPoint.xX < 0 || xPoint.xY < 0 ||
-                xPoint.xX >= xCamDims.usCols || xPoint.xY >= xCamDims.usRows)
+            uint16_t& xY = xPoint.xY;
+            uint16_t& xX = xPoint.xX;
+            if (xY < 0 || xX < 0 || xY >= usCamRows || xX >= usCamCols)
             {
                 xErrorQueue.push("Chip out of bounds: " + xPoint.xStr());
                 return ERROR;
             }
-            else if (xPoint.xX <= xCamDimsHalf.usCols &&
-                     xPoint.xY <= xCamDimsHalf.usRows)
+            else if (xY <= usCamRowsHalf && xX <= usCamColsHalf)
             {
                 return TOP_LEFT;
             }
-            else if (xPoint.xX <= xCamDimsHalf.usCols &&
-                     xPoint.xY > xCamDimsHalf.usRows)
+            else if (xY > usCamRowsHalf && xX <= usCamColsHalf)
             {
                 return BOT_LEFT;
             }
-            else if (xPoint.xX > xCamDimsHalf.usCols &&
-                     xPoint.xY <= xCamDimsHalf.usRows)
+            else if (xY <= usCamRowsHalf && xX > usCamColsHalf)
             {
                 return TOP_RIGHT;
             }
-            else if (xPoint.xX > xCamDimsHalf.usCols &&
-                     xPoint.xY > xCamDimsHalf.usRows)
+            else if (xY > usCamRowsHalf && xX > usCamColsHalf)
             {
                 return BOT_RIGHT;
             }
@@ -149,17 +144,18 @@ class PixyBrain_t
             return ERROR;
         }
 
-
-
         std::queue<std::string> xErrorQueue;
         std::queue<int> xUpdateQueue;
 
         Corners_t xLastCorners;
-        Dims_t xCamDims;
-        Dims_t xCamDimsHalf;
 
         ChipColor_t eColorCalib;
         uint32_t ulChipsToCalib;
+
+        uint16_t usCamRows;
+        uint16_t usCamCols;
+        uint16_t usCamRowsHalf;
+        uint16_t usCamColsHalf;
 
         std::string sLastError;
 };

@@ -1,6 +1,9 @@
 #ifndef STAT_HPP
 #define STAT_HPP
 
+#include <iomanip>
+
+#include "pixy/config.hpp"
 #include "L4_IO/pixy/libfixmath/fix16.hpp"
 
 namespace team9
@@ -21,21 +24,21 @@ class Stat_t
             return xNewMean.value != 0;
         }
 
-        virtual void vUpdate(const float xVal_arg) = 0;
+        virtual void vUpdate(const float xVal_arg, bool bPrint) = 0;
 
         bool vPreOp(float xVal)
         {
-            xCnt += int16_t(1);
+            xCnt+= int16_t(1);
             if (xCnt == int16_t(1))
             {
-                xNewMean = xOldMean = xVal;
+                xNewMean = xOldMean = Fix16();
                 xNewStdDev = xOldStdDev = Fix16();
                 return false;
             }
             return true;
         }
 
-        void vPostOp(Fix16& xVal)
+        void vPostOp(Fix16 xVal)
         {
             xNewStdDev = xOldStdDev + (xVal - xOldMean) * (xVal - xNewMean);
             xOldMean = xNewMean;
@@ -80,7 +83,7 @@ class StatSMA_t : public Stat_t
     public:
         StatSMA_t() {}
 
-        virtual void vUpdate(const float xNewVal)
+        virtual void vUpdate(float xNewVal, bool bPrint = false)
         {
             Fix16 xVal(xNewVal);
             if (vPreOp(xVal))
@@ -95,7 +98,9 @@ class StatSMA_t : public Stat_t
 class StatEMA_t : public Stat_t
 {
     public:
-        StatEMA_t() : bInit(false), xAlpha(0.95)
+        StatEMA_t(float xAlpha_arg = CHIP_COLOR_EMA_ALPHA) :
+                xAlpha(xAlpha_arg),
+                xOneMinusAlpha(1.0f-xAlpha_arg)
         {}
 
         void vSetAlpha(float xAlpha_arg)
@@ -106,13 +111,11 @@ class StatEMA_t : public Stat_t
                 return;
             }
             xAlpha = fix16_from_float(xAlpha_arg);
-            xOneMinusAlpha = fix16_from_float(1.0f - xAlpha_arg);
-            bInit = true;
+            xOneMinusAlpha = fix16_from_float(1.0f-xAlpha_arg);
         }
 
-        virtual void vUpdate(const float xNewVal)
+        virtual void vUpdate(float xVal, bool bPrint = false)
         {
-            Fix16 xVal(xNewVal);
             if (vPreOp(xVal))
             {
                 xNewMean = (xAlpha * xVal) + (xOneMinusAlpha * xOldMean);
@@ -121,11 +124,8 @@ class StatEMA_t : public Stat_t
         }
 
     private:
-        bool bInit;
         Fix16 xAlpha;
         Fix16 xOneMinusAlpha;
-
-
 };
 
 

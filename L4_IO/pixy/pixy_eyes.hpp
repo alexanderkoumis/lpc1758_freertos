@@ -127,13 +127,13 @@ public:
             case 0xaa55:
             {
                 eBlockType = NORMAL;
-                eState = DONE;
+                eState = READ_FIRST;
                 break;
             }
             case 0xaa56:
             {
                 eBlockType = COLOR_CODED;
-                eState = DONE;
+                eState = READ_FIRST;
                 break;
             }
             case 0x0000:

@@ -11,7 +11,6 @@
 #include "pixy/pixy_brain.hpp"
 #include "pixy/pixy_eyes.hpp"
 #include "pixy/pixy_mouth.hpp"
-#include "pixy/pixy_display.hpp"
 
 namespace team9
 {
@@ -20,98 +19,114 @@ namespace pixy
 
 class Pixy_t
 {
-	public:
+    public:
         enum State_t {CALIB, RUN, UPDATE, ERROR} eState;
 
         Pixy_t () {}
 
-		Pixy_t (uint32_t ulChipsAtATime, uint32_t ulChipsToCalibCorners,
-		        ChipColor_t eColorCalib) :
-				eState(CALIB),
-				pPixyBrain(new pixy::PixyBrain_t(Dims_t(200, 320), eColorCalib,
-				                                 ulChipsToCalibCorners)),
-				pPixyEyes(new pixy::PixyEyes_t(ulChipsAtATime)),
-				pPixyMouth(new pixy::PixyMouth_t),
-				pPixyDisplay(new pixy::PixyDisplay_t("#", 200, 320)),
-				xFuncMap(new FuncMap_t<State_t, void>)
-		{
-			vInitMapFunc();
-			vInitMapStr();
-		}
+        Pixy_t (uint32_t ulChipsAtATime, uint32_t ulChipsToCalib,
+                ChipColor_t eColorCalib) :
+                eState(CALIB),
+                pPixyBrain(new pixy::PixyBrain_t(eColorCalib, ulChipsToCalib)),
+                pPixyEyes(new pixy::PixyEyes_t(ulChipsAtATime)),
+                pPixyMouth(new pixy::PixyMouth_t),
+                xFuncMap(new FuncMap_t<State_t, void>)
+        {
+            vInitMapFunc();
+            vInitMapStr();
+        }
 
-		void vAction()
-		{
-		    std::cout << "State: " << xStringMap[eState] << std::endl;
-		    xFuncMap->vResponse(eState)();
-		}
+        void vAction()
+        {
+            xFuncMap->vResponse(eState)();
+        }
 
-	private:
+    private:
 
 
-		void vInitMapFunc()
-		{
-			xFuncMap->vSetHandler(CALIB, [&] ()
-			{
-				if (pPixyBrain->vCalibBoard(pPixyEyes.get()))
-				{
-				    std::cout << "Corners: " << std::endl
-				              << pPixyBrain->pBoard->xCorners << std::endl
-				              << "Points: " << std::endl;
-				    pPixyBrain->pBoard->vPrintChips();
-//				    std::vector<Point_t> xPoints;
-//					pPixyDisplay->vUpdate(xPoints, true);
-//					pPixyDisplay->vPrint();
-					eState = RUN;
-				}
-				else
-				{
-					eState = ERROR;
-				}
-			});
-
-			xFuncMap->vSetHandler(RUN, [&] ()
-			{
-			    switch(pPixyBrain->lSampleChips(pPixyEyes.get()))
-			    {
-			        case 0:
-			        {
-			            pPixyBrain->pBoard->vPrintChips(Board_t::COLOR);
-			        }
-			        case 1:
-			        {
-
-			        }
-			    }
-			    eState = RUN;
-			});
-
-			xFuncMap->vSetHandler(UPDATE, [&] ()
+        void vInitMapFunc()
+        {
+            xFuncMap->vSetHandler(CALIB, [&] ()
             {
-			    if (!pPixyMouth->xEmitUpdate(pPixyBrain->lGetUpdate()))
+                if (pPixyBrain->vCalibBoard(pPixyEyes.get()))
                 {
-			        eState = ERROR;
-                };
-			    eState = RUN;
+                    std::cout << "Corners: " << std::endl
+                            << pPixyBrain->pBoard->xCorners << std::endl
+                            << "Points: " << std::endl;
+                    pPixyBrain->pBoard->vPrintChips();
+                    eState = RUN;
+                }
+                else
+                {
+                    eState = ERROR;
+                }
             });
 
-			xFuncMap->vSetHandler(ERROR, [&] ()
-			{
-				std::cout << pPixyBrain->xGetErrors() << std::endl;
-				eState = CALIB;
-			});
-		}
+            xFuncMap->vSetHandler(RUN, [&] ()
+            {
+                int lChangedChip = pPixyBrain->lSampleChips(pPixyEyes.get());
+                switch(lChangedChip)
+                {
+                    case -2:
+                    {
+                        // No chips changed
+                        break;
+                    }
+                    case -1:
+                    {
+                        std::vector<int> xChangedChips;
+                        pPixyBrain->pBoard->vGetChanged(xChangedChips);
+                        std::cout << "Multiple changed chips:" << std::endl;
+                        for (auto& lChip : xChangedChips)
+                        {
+                            int lRow = lChip / 7;
+                            int lCol = lChip % 7;
+                            std::cout << "[" << lRow << "]"
+                                      << "[" << lCol << "]" << std::endl;
+                        }
+                        pPixyBrain->pBoard->vPrintChips(Board_t::COLOR);
+                        break;
+                    }
+                    default:
+                    {
+                        int lRow = lChangedChip / 7;
+                        int lCol = lChangedChip % 7;
+                        std::cout << "Single changed chip: "
+                                  << "[" << lRow << "]"
+                                  << "[" << lCol << "]" << std::endl;
+                        pPixyBrain->pBoard->vPrintChips(Board_t::COLOR);
+                        break;
+                    }
+                }
+                eState = RUN;
+            });
 
-		void vInitMapStr()
-		{
-			xStringMap[CALIB] = std::string("CALIB");
-			xStringMap[RUN] = std::string("RUN");
-			xStringMap[ERROR] = std::string("ERROR");
-		}
+            xFuncMap->vSetHandler(UPDATE, [&] ()
+            {
+                if (!pPixyMouth->xEmitUpdate(pPixyBrain->lGetUpdate()))
+                {
+                    eState = ERROR;
+                };
+                eState = RUN;
+            });
+
+            xFuncMap->vSetHandler(ERROR, [&] ()
+            {
+                std::cout << pPixyBrain->xGetErrors() << std::endl;
+                eState = CALIB;
+            });
+        }
+
+        void vInitMapStr()
+        {
+            xStringMap[CALIB] = std::string("CALIB");
+            xStringMap[RUN] = std::string("RUN");
+            xStringMap[ERROR] = std::string("ERROR");
+        }
 
         std::unique_ptr<pixy::PixyBrain_t> pPixyBrain;
         std::unique_ptr<pixy::PixyEyes_t> pPixyEyes;
         std::unique_ptr<pixy::PixyMouth_t> pPixyMouth;
-        std::unique_ptr<pixy::PixyDisplay_t> pPixyDisplay;
 
         std::map<State_t, std::string> xStringMap;
         std::unique_ptr<FuncMap_t<State_t, void>> xFuncMap;
