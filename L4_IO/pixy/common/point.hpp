@@ -1,6 +1,8 @@
 #ifndef POINT_HPP
 #define POINT_HPP
 
+#include "L4_IO/pixy/libfixmath/fix16.hpp"
+
 namespace team9
 {
 namespace pixy
@@ -82,6 +84,12 @@ struct Point_t
         std::ostringstream xOss;
         xOss << "[" << xY << " " << xX << "]";
         return xOss.str();
+    }
+
+    template<typename T1>
+    float xCalcDist(Point_t<T1>& xPt) const
+    {
+        return sqrt(pow(xPt.xY - xY, 2) + pow(xPt.xX - xX, 2));
     }
 
     template<typename T1>

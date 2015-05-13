@@ -47,11 +47,6 @@ public:
 
         vRecvBlocks.clear();
         vRecvBlocks.resize(ulChipsAtATime);
-        int start_counter = 0;
-        int read_first_counter = 0;
-        int read_block_counter = 0;
-        int read_next_counter = 0;
-        int default_counter = 0;
 
         while (eState != DONE)
         {
@@ -59,31 +54,26 @@ public:
             {
                 case START:
                 {
-                    start_counter++;
                     vStateStart();
                     break;
                 }
                 case READ_FIRST:
                 {
-                    read_first_counter++;
                     vStateReadFirst();
                     break;
                 }
                 case READ_BLOCK:
                 {
-                    read_block_counter++;
                     vStateReadBlock(vRecvBlocks);
                     break;
                 }
                 case READ_NEXT:
                 {
-                    read_next_counter++;
                     vStateReadNext();
                     break;
                 }
                 default:
                 {
-                    default_counter++;
                     u0_dbg_printf("Error: usGetBlocks default case\n");
                     break;
                 }

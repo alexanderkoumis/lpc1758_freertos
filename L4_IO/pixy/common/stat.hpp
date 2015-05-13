@@ -69,6 +69,17 @@ class Stat_t
             return std::sqrt(xVariance());
         }
 
+        float xStat(StatEnum_t xStatType)
+        {
+            switch(xStatType)
+            {
+                case M:  return xMean();
+                case V:  return xVariance();
+                case S:  return xStdDev();
+                default: return -999.99;
+            }
+        }
+
     protected:
         Fix16 xNewMean;
         Fix16 xOldMean;

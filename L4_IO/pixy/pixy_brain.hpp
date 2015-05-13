@@ -28,6 +28,26 @@ class PixyBrain_t
                 usCamRowsHalf(usCamRows/2), usCamColsHalf(usCamCols/2)
         {}
 
+        void vReset()
+        {
+            pBoard->vReset();
+        }
+
+        void vEMAAlphaUp()
+        {
+            pBoard->vAdjustEMAAlpha(true);
+        }
+
+        void vEMAAlphaDown()
+        {
+            pBoard->vAdjustEMAAlpha(false);
+        }
+
+        float xGetAlpha()
+        {
+            return pBoard->xGetAlpha();
+        }
+
         bool vCalibBoard(PixyEyes_t* pPixyEyes)
         {
             uint32_t ulChips = 0;
@@ -56,6 +76,7 @@ class PixyBrain_t
                 case 0:
                 {
                     pBoard->xCorners = xCorners;
+                    pBoard->vPayAttentionTo(-1, 0, 0, 0, 0, 0, -1);
                     return true;
                 }
                 case 1:
@@ -83,8 +104,9 @@ class PixyBrain_t
             std::vector<std::pair<size_t, ChipColor_t>> xSeenChips;
             pPixyEyes->ulSeenBlocks(xBlocks);
             pBoard->vCalcSeenChips(xBlocks, xSeenChips);
+            this->xLastSeen = xSeenChips;
             pBoard->vUpdate(xSeenChips);
-            return pBoard->lChipHasChanged();
+            return pBoard->lChipChanged();
         }
 
         int lGetUpdate()
@@ -96,6 +118,23 @@ class PixyBrain_t
                 return -1;
             }
             return 0;
+        }
+
+        void vPrintChips(Board_t::PrintMode_t xPrintMode,
+                         bool bPrintLastSeen = false)
+        {
+            std::vector<std::pair<size_t, ChipColor_t>> xSeenChips = (bPrintLastSeen) ? this->xLastSeen : std::vector<std::pair<size_t, ChipColor_t>>();
+            switch (xPrintMode)
+            {
+                case Board_t::LOCATION: pBoard->vLocationPrint(); break;
+                case Board_t::COLOR: pBoard->vColorPrint(xSeenChips, true); break;
+                case Board_t::OPENCV_META: pBoard->vOpenCVPrint(); break;
+            }
+        }
+
+         void vPrintCorners(Board_t::PrintMode_t xPrintMode)
+        {
+            pBoard->vPrintChips(xPrintMode);
         }
 
         std::string xGetErrors()
@@ -111,10 +150,7 @@ class PixyBrain_t
             return oss.str();
         }
 
-        std::unique_ptr<Board_t> pBoard;
-
     private:
-
         inline Quadrant_t xComputeQuadrant(Point_t<uint16_t>& xPoint)
         {
             uint16_t& xY = xPoint.xY;
@@ -144,9 +180,12 @@ class PixyBrain_t
             return ERROR;
         }
 
+        std::unique_ptr<Board_t> pBoard;
+
         std::queue<std::string> xErrorQueue;
         std::queue<int> xUpdateQueue;
 
+        std::vector<std::pair<size_t, ChipColor_t>> xLastSeen;
         Corners_t xLastCorners;
 
         ChipColor_t eColorCalib;

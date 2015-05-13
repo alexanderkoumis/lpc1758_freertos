@@ -35,7 +35,7 @@ enum Quadrant_t
 
 enum StatEnum_t
 {
-    M, V, S
+    M, V, S, C
 };
 
 } // namespace pixy

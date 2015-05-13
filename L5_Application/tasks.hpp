@@ -29,6 +29,7 @@
 
 #include "FreeRTOS.h"
 #include "semphr.h"
+#include "io.hpp"
 
 #include "pixy.hpp"
 
@@ -78,9 +79,17 @@ class PixyTask_t : public scheduler_task
 			LPC_GPIO0->FIOCLR = (1 << 16); // P0[16] as SSP1
 		}
 
+        bool init(void)
+        {
+            Switches& xSwitches = SW.getInstance();
+            bool bSwInit = xSwitches.init();
+            return bSwInit;
+        }
+
+
         bool run(void *p)
         {
-        	pPixy->vAction();
+            pPixy->vAction(SW.getSwitchValues());
             return true;
         }
 

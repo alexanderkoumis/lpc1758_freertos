@@ -33,7 +33,7 @@ class PointStat_t
 
         virtual void vUpdate(Point_t<float>& xNewPoint) = 0;
 
-        Point_t<float> xPoint()
+        Point_t<float> xPoint() const
         {
             return Point_t<float>(fix16_to_float(xNewMean.y),
                                   fix16_to_float(xNewMean.x));

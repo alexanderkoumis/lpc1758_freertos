@@ -8,6 +8,7 @@
 #include "pixy/config.hpp"
 #include "pixy/common.hpp"
 #include "pixy/common/func_map.hpp"
+#include "pixy/common/board.hpp"
 #include "pixy/pixy_brain.hpp"
 #include "pixy/pixy_eyes.hpp"
 #include "pixy/pixy_mouth.hpp"
@@ -20,13 +21,25 @@ namespace pixy
 class Pixy_t
 {
     public:
-        enum State_t {CALIB, RUN, UPDATE, ERROR} eState;
+        enum State_t
+        {
+            RESET=0x01,          // SW(1)
+            EMA_ALPHA_UP=0x02,   // SW(2)
+            EMA_ALPHA_DOWN=0x04, // SW(3)
+            SW_4=0x08,           // SW(4)
+            CALIB=16,
+            RUN=17,
+            UPDATE=18,
+            ERROR=19
+        } eState, eLastState;
 
-        Pixy_t () {}
+        Pixy_t ()
+        {}
 
         Pixy_t (uint32_t ulChipsAtATime, uint32_t ulChipsToCalib,
                 ChipColor_t eColorCalib) :
                 eState(CALIB),
+                eLastState(CALIB),
                 pPixyBrain(new pixy::PixyBrain_t(eColorCalib, ulChipsToCalib)),
                 pPixyEyes(new pixy::PixyEyes_t(ulChipsAtATime)),
                 pPixyMouth(new pixy::PixyMouth_t),
@@ -36,24 +49,50 @@ class Pixy_t
             vInitMapStr();
         }
 
-        void vAction()
+        void vAction(uint8_t xButton)
         {
+            eLastState = eState;
+            if (xButton)
+            {
+                eState = (State_t)xButton;
+            }
             xFuncMap->vResponse(eState)();
         }
 
     private:
-
-
         void vInitMapFunc()
         {
+            xFuncMap->vSetHandler(RESET, [&] ()
+            {
+                pPixyBrain->vReset();
+                eState = CALIB;
+            });
+
+            xFuncMap->vSetHandler(EMA_ALPHA_UP, [&] ()
+            {
+                pPixyBrain->vEMAAlphaUp();
+                std::cout << "Alpha: " << pPixyBrain->xGetAlpha() << std::endl;
+                eState = eLastState;
+            });
+
+            xFuncMap->vSetHandler(EMA_ALPHA_DOWN, [&] ()
+            {
+                pPixyBrain->vEMAAlphaDown();
+                std::cout << "Alpha: " << pPixyBrain->xGetAlpha() << std::endl;
+                eState = eLastState;
+            });
+
+            xFuncMap->vSetHandler(SW_4, [&] ()
+            {
+                std::cout << "Switch 4 is unmapped" << std::endl;
+                eState = eLastState;
+            });
+
             xFuncMap->vSetHandler(CALIB, [&] ()
             {
                 if (pPixyBrain->vCalibBoard(pPixyEyes.get()))
                 {
-                    std::cout << "Corners: " << std::endl
-                            << pPixyBrain->pBoard->xCorners << std::endl
-                            << "Points: " << std::endl;
-                    pPixyBrain->pBoard->vPrintChips();
+                    pPixyBrain->vPrintCorners(Board_t::LOCATION);
                     eState = RUN;
                 }
                 else
@@ -64,39 +103,11 @@ class Pixy_t
 
             xFuncMap->vSetHandler(RUN, [&] ()
             {
-                int lChangedChip = pPixyBrain->lSampleChips(pPixyEyes.get());
-                switch(lChangedChip)
+                int lChipSample = pPixyBrain->lSampleChips(pPixyEyes.get());
+                if (lChipSample > 0)
                 {
-                    case -2:
-                    {
-                        // No chips changed
-                        break;
-                    }
-                    case -1:
-                    {
-                        std::vector<int> xChangedChips;
-                        pPixyBrain->pBoard->vGetChanged(xChangedChips);
-                        std::cout << "Multiple changed chips:" << std::endl;
-                        for (auto& lChip : xChangedChips)
-                        {
-                            int lRow = lChip / 7;
-                            int lCol = lChip % 7;
-                            std::cout << "[" << lRow << "]"
-                                      << "[" << lCol << "]" << std::endl;
-                        }
-                        pPixyBrain->pBoard->vPrintChips(Board_t::COLOR);
-                        break;
-                    }
-                    default:
-                    {
-                        int lRow = lChangedChip / 7;
-                        int lCol = lChangedChip % 7;
-                        std::cout << "Single changed chip: "
-                                  << "[" << lRow << "]"
-                                  << "[" << lCol << "]" << std::endl;
-                        pPixyBrain->pBoard->vPrintChips(Board_t::COLOR);
-                        break;
-                    }
+                    std::cout << "Insertion Row: " << lChipSample << std::endl;
+                    pPixyBrain->vPrintChips(Board_t::COLOR, true);
                 }
                 eState = RUN;
             });
@@ -130,8 +141,6 @@ class Pixy_t
 
         std::map<State_t, std::string> xStringMap;
         std::unique_ptr<FuncMap_t<State_t, void>> xFuncMap;
-
-
 };
 
 } // namespace pixy

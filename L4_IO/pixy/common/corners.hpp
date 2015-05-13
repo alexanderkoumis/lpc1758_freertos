@@ -22,6 +22,14 @@ class Corners_t
             xStats.resize(8);
         }
 
+        void vReset()
+        {
+            for (auto& xStat : xStats)
+            {
+                xStat.vReset();
+            }
+        }
+
         Point_t<float> operator() (Quadrant_t xQuadrant) const
         {
             return Point_t<float>(xStats[2*xQuadrant].xMean(),
@@ -45,17 +53,18 @@ class Corners_t
             return std::string(buff);
         }
 
+        void vPrint()
+        {
+            std::cout << std::noskipws << "[" << std::endl
+                      << "    " << xCornerStr(*this, TOP_LEFT)
+                      << " " << xCornerStr(*this, TOP_RIGHT) << std::endl
+                      << "    " << xCornerStr(*this, BOT_LEFT)
+                      << " " << xCornerStr(*this, BOT_RIGHT) << std::endl
+                      << "]" << std::endl;
+        }
+
     private:
-        friend std::ostream& operator << (std::ostream& xLHS,
-                                          const Corners_t& xRHS)
-         {
-             return xLHS << std::noskipws << "[" << std::endl
-                         << "    " << xCornerStr(xRHS, TOP_LEFT)
-                         << " " << xCornerStr(xRHS, TOP_RIGHT) << std::endl
-                         << "    " << xCornerStr(xRHS, BOT_LEFT)
-                         << " " << xCornerStr(xRHS, BOT_RIGHT) << std::endl
-                         << "]";
-         }
+
 
         std::vector<StatEMA_t> xStats;
 };

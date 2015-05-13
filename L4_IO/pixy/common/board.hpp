@@ -9,6 +9,7 @@
 #include "pixy/common.hpp"
 #include "pixy/common/chip.hpp"
 #include "pixy/common/corners.hpp"
+#include "pixy/common/point.hpp"
 #include "pixy/common/stat.hpp"
 
 namespace team9
@@ -22,12 +23,31 @@ class Board_t
 
         enum PrintMode_t {LOCATION, COLOR, OPENCV_META};
 
-        Board_t() :
-            ulRows(6), ulCols(7),
-            xPointEMA_alpha(CHIP_LOC_EMA_ALPHA),
-            xTolerance(CHIP_PROXIM_TOLERANCE)
+        Board_t() : xWatchedChips(7), ulRows(6), ulCols(7),
+                    xPointEMA_alpha(CHIP_LOC_EMA_ALPHA),
+                    xTolerance(CHIP_PROXIM_TOLERANCE)
         {
             vInitStringMap();
+        }
+
+        void vReset()
+        {
+            for (auto& xChip : xAllChips)
+            {
+                xChip.vReset();
+            }
+            for (auto& xWatchedChip : xWatchedChips)
+            {
+                xWatchedChip.vReset();
+            }
+            vPayAttentionTo(-1, -1, -1, -1, -1, -1, -1);
+        }
+
+        void vAdjustEMAAlpha(bool bEMAAlphaUp)
+        {
+            xPointEMA_alpha = (bEMAAlphaUp) ?
+                    std::min(xPointEMA_alpha + EMA_ALPHA_ADJ, 0.9999f):
+                    std::max(xPointEMA_alpha - EMA_ALPHA_ADJ, 0.0001f);
         }
 
         bool xFillRow(uint32_t xRowNum, std::vector<Point_t<float>>& xRowVec)
@@ -46,8 +66,8 @@ class Board_t
                 xChip.xPtLocation.vUpdate(xColElem);
                 xTempChips.push_back(xChip);
             }
-            xChips.insert(xChips.begin() + ulCols * xRowNum, xTempChips.begin(),
-                          xTempChips.end());
+            xAllChips.insert(xAllChips.begin() + ulCols * xRowNum,
+                             xTempChips.begin(), xTempChips.end());
             return true;
         }
 
@@ -79,7 +99,7 @@ class Board_t
                 return 1; // Invalid number of points
             }
             size_t xRightPtIdx = 0;
-            xChips.clear();
+            xAllChips.clear();
             for (Point_t<float>& xLeftPt : xTLBLPoints)
             {
                 std::vector<Point_t<float>> xPts;
@@ -89,20 +109,107 @@ class Board_t
                 {
                     Chip_t xChip(xPointEMA_alpha);
                     xChip.xPtLocation.vUpdate(xPt);
-                    xChips.push_back(xChip);
+                    xAllChips.push_back(xChip);
                 }
             }
-            return (xChips.size() == ulRows * ulCols) ? 0 : 2;
+            return (xAllChips.size() == ulRows * ulCols) ? 0 : 2;
+        }
+
+        void vPayAttentionTo(int lCol0, int lCol1, int lCol2, int lCol3,
+                             int lCol4, int lCol5, int lCol6)
+        {
+            if (!xWatchedChips.empty())
+            {
+                std::fill(xWatchedChips.begin(), xWatchedChips.end(), Chip_t());
+            }
+            xWatchedIdxs.clear();
+            xWatchedIdxs.push_back(lCol0);
+            xWatchedIdxs.push_back(lCol1);
+            xWatchedIdxs.push_back(lCol2);
+            xWatchedIdxs.push_back(lCol3);
+            xWatchedIdxs.push_back(lCol4);
+            xWatchedIdxs.push_back(lCol5);
+            xWatchedIdxs.push_back(lCol6);
         }
 
         void vCalcSeenChips(
                 std::vector<Block_t>& xBlocks,
                 std::vector<std::pair<size_t, ChipColor_t>>& xSeenChips)
         {
+
+//            for (Block_t& xBlock : xBlocks)
+//            {
+//                bool bDone = false;
+//                float xDistCurr = 0.0;
+//
+//                size_t xIdx = 0;
+//
+//                while (!bDone)
+//                {
+//                    size_t xRow = xIdx / 7;
+//                    size_t xCol = xIdx % 7;
+//                    bool bCheckRight = true;
+//                    bool bCheckDown = true;
+//
+//                    if (xRow == 6 || xCol == 7)
+//                    {
+//                        bDone = true;
+//                        break;
+//                    }
+//
+//                    bCheckRight = (xCol <= 5);
+//                    bCheckDown = (xRow <= 4);
+//
+//                    xDistCurr = xAllChips[xIdx].xPtLocation.xPoint().xCalcDist(xBlock.xPoint);
+//                    float xDistRight = (bCheckRight) ? xAllChips[xIdx+1].xPtLocation.xPoint().xCalcDist(xBlock.xPoint) : 0.0f;
+//                    float xDistDown = (bCheckDown) ? xAllChips[xIdx+7].xPtLocation.xPoint().xCalcDist(xBlock.xPoint) : 0.0f;
+//
+//                    if (bCheckRight && bCheckRight)
+//                    {
+//                        if (xDistCurr < xDistRight && xDistCurr < xDistDown)
+//                        {
+//                            bDone = true;
+//                            break;
+//                        }
+//                        xIdx += (xDistRight < xDistDown) ? 1 : 7;
+//                    }
+//                    else if (bCheckRight) // Don't check down, row == 5
+//                    {
+//                        if (xDistCurr < xDistRight)
+//                        {
+//                            bDone = true;
+//                            break;
+//                        }
+//                        xIdx += 1;
+//                    }
+//                    else if (bCheckDown) // Don't check right, col == 6
+//                    {
+//                        if (xDistCurr < xDistDown)
+//                        {
+//                            bDone = true;
+//                            break;
+//                        }
+//                        xIdx += 7;
+//                    }
+//                    else
+//                    {
+//                        bDone = true;
+//                    }
+//                }
+//                if (xDistCurr < ulDistBetweenCols * xTolerance)
+//                {
+//                    xSeenChips.push_back(std::make_pair(xIdx, (ChipColor_t)xBlock.usSignature));
+//                }
+//            }
+
             float xMaxDist = (float)ulDistBetweenCols * xTolerance;
-            for (size_t xI = 0; xI < xChips.size(); ++xI)
+            for (size_t xI = 0; xI < xWatchedChips.size(); ++xI)
             {
-                Chip_t& xChip = xChips[xI];
+                if (xWatchedIdxs[xI] < 0 || xWatchedIdxs[xI] > ulRows)
+                {
+                    continue;
+                }
+                Chip_t& xChip = xAllChips[xWatchedIdxs[xI]];
                 ChipColor_t xTempColor = NONE;
                 float xTempDist = 9999;
                 for (size_t xJ = 0; xJ < xBlocks.size(); ++xJ)
@@ -123,74 +230,66 @@ class Board_t
             }
         }
 
+
         void vUpdate(std::vector<std::pair<size_t, ChipColor_t>>& xSeenChips)
         {
-            for (size_t xI = 0; xI < xChips.size(); ++xI)
+//            for (size_t xI = 0; xI < xAllChips.size(); ++xI)
+            for (size_t xI = 0; xI < xWatchedIdxs.size(); ++xI)
             {
-                size_t xNoneCount = 0;
-                size_t xGreenCount = 0;
-                size_t xRedCount = 0;
+                if (xWatchedIdxs[xI] < 0)
+                {
+                    continue;
+                }
+                size_t xNoneCnt = 0;
+                size_t xGreenCnt = 0;
+                size_t xRedCnt = 0;
                 for (auto& xSeenChip : xSeenChips)
                 {
                     if (xSeenChip.first == xI)
                     {
                         switch (xSeenChip.second)
                         {
-                            case NONE: xNoneCount++; break;
-                            case GREEN: xGreenCount++; break;
-                            case RED: xRedCount++; break;
+                            case NONE: xNoneCnt++; break;
+                            case GREEN: xGreenCnt++; break;
+                            case RED: xRedCnt++; break;
                         }
                     }
                 }
-                xChips[xI].vUpdateFreq(xNoneCount, xGreenCount, xRedCount);
+                xWatchedChips[xI].vUpdateFreq(xNoneCnt, xGreenCnt, xRedCnt);
             }
         }
 
-        int lChipHasChanged()
+        // Results in -1 if no change. If change, value is col. index of change
+        int lChipChanged()
         {
-            // -2 == No change, -1 == Multiple changed, >0 == index of change
-            int lReturnVal = -2;
-            int lCurrChanged = 0;
-            for (size_t xI = 0; xI < xChips.size(); ++xI)
+            for (size_t& xIdx : xWatchedIdxs)
             {
-                Chip_t& xChip = xChips[xI];
-                if (xChip.bChanged())
+                if (xIdx < 0)
                 {
-                    if (lCurrChanged == 0)
-                    {
-                        lReturnVal = xI;
-                    }
-                    else if (lCurrChanged == 1)
-                    {
-                        xChangedChips.push(lReturnVal);
-                        xChangedChips.push(xI);
-                        lReturnVal = -1;
-                    }
-                    else if (lCurrChanged > 1)
-                    {
-                        xChangedChips.push(xI);
-                    }
-                    lCurrChanged++;
+                    continue;
+                }
+                if (xWatchedChips[xIdx].bNotNoneAndTheSameNTimes<5>())
+                {
+                    xWatchedChips[xIdx].vReset();
+                    return xIdx++;
                 }
             }
-            return lReturnVal;
+            return -1;
         }
 
-        void vGetChanged(std::vector<int>& xChanged)
+        uint32_t ulExpectedTotalChips()
         {
-            while (!xChangedChips.empty())
-            {
-                xChanged.push_back(xChangedChips.front());
-                xChangedChips.pop();
-            }
+            return ulRows * ulCols;
         }
 
-        void vReset()
+        uint32_t ulActualTotalChips()
         {
-            for (auto& xChip : xChips)
-            {
-                xChip.vReset();
-            }
+            return xAllChips.size();
+        }
+
+        float xGetAlpha()
+        {
+            return xPointEMA_alpha;
         }
 
         void vPrintChips(
@@ -198,9 +297,9 @@ class Board_t
                 const std::vector<std::pair<size_t, ChipColor_t>> xSeenChips =
                       std::vector<std::pair<size_t, ChipColor_t>>())
         {
-            if (xChips.size() != ulRows * ulCols)
+            if (xAllChips.size() != ulRows * ulCols)
             {
-                std::cout << "Chip print error: Num chips: " << xChips.size()
+                std::cout << "Chip print error: Num chips: " << xAllChips.size()
                           << ", rows: " << ulRows << "  cols: " << ulCols
                           << std::endl;
                 return;
@@ -222,24 +321,28 @@ class Board_t
                  xOss << "Row: " << xI;
                  for (size_t xJ = 0; xJ < ulCols; ++xJ)
                  {
-                     xOss << " " << xChips[ulIdx++].xPtLocation.xStr();
-                     ulIdx++;
+                     xOss << " " << xAllChips[ulIdx++].xLocStr();
                  }
                  xOss << "\n";
              }
              std::cout << xOss.str() << std::endl;
         }
 
+
         void vColorPrint(
                 const std::vector<std::pair<size_t, ChipColor_t>> xSeenChips =
-                      std::vector<std::pair<size_t, ChipColor_t>>())
+                      std::vector<std::pair<size_t, ChipColor_t>>(),
+                bool bPrintStdDev = false)
         {
             std::ostringstream xOss;
             uint32_t ulIdx1 = 0;
             uint32_t ulIdx2 = 0;
+            uint32_t ulIdx3 = 0;
             bool bSeenChipsEmpty = xSeenChips.empty();
             xOss << "Col:   0 1 2 3 4 5 6";
-            xOss << ((bSeenChipsEmpty) ? "\n" : "     0 1 2 3 4 5 6\n");
+            xOss << ((bSeenChipsEmpty) ? "" : "      0 1 2 3 4 5 6");
+            xOss << ((bPrintStdDev) ?
+                    "         0       1       2       3       4       5       6\n" : "\n");
             for (size_t xI = 0; xI < ulRows; ++xI)
             {
                 xOss << "Row " << xI << ":";
@@ -264,8 +367,24 @@ class Board_t
                 //// Print known chip colors
                 for (size_t xJ = 0; xJ < ulCols; ++xJ)
                 {
-                    ChipColor_t xChipColor = xChips[ulIdx2++].xMaxChip();
+                    ChipColor_t xChipColor = xAllChips[ulIdx2++].xMaxChip();
                     xOss << " " << xStringMap[xChipColor];
+                }
+                //// Print standard deviation
+                if (bPrintStdDev)
+                {
+                    xOss << "     ";
+                    for (size_t xJ = 0; xJ < ulCols; ++xJ)
+                    {
+                        if (xAllChips[ulIdx3++].xGetColor(StatEnum_t::S) > 0.0f)
+                        {
+                            xOss << " " << xAllChips[ulIdx3++].xStdDevStr();
+                        }
+                        else
+                        {
+                            xOss << "    -   ";
+                        }
+                    }
                 }
                 xOss << "\n";
             }
@@ -276,7 +395,7 @@ class Board_t
         {
             std::ostringstream xOss;
             xOss << "std::vector<cv::Point2f> point_vec;\n";
-            for (auto& xChip : xChips)
+            for (auto& xChip : xAllChips)
             {
                 xOss << "point_vec.push_back("
                      << Point_t<float>::xOpenCVPt(
@@ -285,20 +404,9 @@ class Board_t
             std::cout << xOss.str() << std::endl;
         }
 
-        uint32_t ulExpectedTotalChips()
-        {
-            return ulRows * ulCols;
-        }
-
-        uint32_t ulActualTotalChips()
-        {
-            return xChips.size();
-        }
-
         Corners_t xCorners;
 
     private:
-
         void vInitStringMap()
         {
             xStringMap[NONE] = "-";
@@ -306,9 +414,13 @@ class Board_t
             xStringMap[RED] = "R";
         }
 
-        std::vector<Chip_t> xChips;
+        std::vector<Chip_t> xAllChips;
+        std::vector<Chip_t> xWatchedChips;
+        std::vector<size_t> xWatchedIdxs;
+        uint8_t ucInterestingMask;
+
         std::map<ChipColor_t, std::string> xStringMap;
-        std::queue<int> xChangedChips;
+//        std::queue<size_t> xChangedChips;
         uint32_t ulRows;
         uint32_t ulCols;
         uint32_t ulDistBetweenRows;
