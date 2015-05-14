@@ -31,7 +31,7 @@ class Stat_t
             xCnt+= int16_t(1);
             if (xCnt == int16_t(1))
             {
-                xNewMean = xOldMean = Fix16();
+                xNewMean = xOldMean = Fix16(xVal);
                 xNewStdDev = xOldStdDev = Fix16();
                 return false;
             }

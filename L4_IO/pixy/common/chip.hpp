@@ -15,51 +15,51 @@ class Chip_t
     public:
         Chip_t() : Chip_t(CHIP_PROXIM_TOLERANCE) {}
         Chip_t(float xPointEMA_alpha) :
-                xChipColor(ChipColor_t::NONE),
+                xKnownChipColor(ChipColor_t::NONE),
                 xLastChipColor(ChipColor_t::NONE),
                 bNoneGreatest(false),
                 bGreenGreatest(false),
                 bRedGreatest(false),
-                lChangedCnt(0), xLastKnownColorFreq(0.0f)
+                bEnabled(true),
+                lInARowCnt(0),
+                lTimesRepeatedForMax(NUM_TIMES_FOR_CNT),
+                xLastKnownColorFreq(0.0f)
         {
-            xPtLocation.vSetAlpha(xPointEMA_alpha);
+            xPtLoc.vSetAlpha(xPointEMA_alpha);
         }
 
         void vReset()
         {
-            xPtLocation.vReset();
-            xChipColorNone.vReset();
-            xChipColorGreen.vReset();
-            xChipColorRed.vReset();
+            xPtLoc.vReset();
+            this->vResetCounters();
+        }
 
-            xChipColor = NONE;
-            xLastChipColor = NONE;
-
-            bNoneGreatest = true;
-            bGreenGreatest = false;
-            bRedGreatest = false;
+        void vSet(ChipColor_t xChipColor)
+        {
+            bEnabled = false;
+            xKnownChipColor = xChipColor;
         }
 
         ChipColor_t xMaxChip()
         {
-            return xChipColor;
+            return xKnownChipColor;
         }
 
         float xMeanVal()
         {
-            return (xChipColor == GREEN) ? xChipColorGreen.xMean() :
-                    ((xChipColor == RED) ? xChipColorRed.xMean() : 0.0);
+            return (xKnownChipColor == GREEN) ? xChipColorGreen.xMean() :
+                    ((xKnownChipColor == RED) ? xChipColorRed.xMean() : 0.0);
         }
 
         float xStdDevVal()
         {
-            return (xChipColor == GREEN) ? xChipColorGreen.xStdDev() :
-                    ((xChipColor == RED) ? xChipColorRed.xStdDev() : 0.0);
+            return (xKnownChipColor == GREEN) ? xChipColorGreen.xStdDev() :
+                    ((xKnownChipColor == RED) ? xChipColorRed.xStdDev() : 0.0);
         }
 
         std::string xLocStr()
         {
-            return xPtLocation.xStr();
+            return xPtLoc.xStr();
         }
 
         std::string xStdDevStr()
@@ -77,50 +77,79 @@ class Chip_t
             return buff;
         }
 
-        void vUpdateFreq(size_t xNoneFreq, size_t xGreenFreq, size_t xRedFreq)
+        void vUpdateFreq(int xNoneFreq, int xGreenFreq, int xRedFreq)
         {
-            xChipColorNone.vUpdate(xNoneFreq);
-            xChipColorGreen.vUpdate(xGreenFreq);
-            xChipColorRed.vUpdate(xRedFreq);
-
-            float xIsNone = xChipColorNone.xMean();
-            float xIsGreen = xChipColorGreen.xMean();
-            float xIsRed = xChipColorRed.xMean();
-
-            bGreenGreatest = (xIsGreen > xIsNone) && (xIsGreen > xIsRed);
-            bRedGreatest = (xIsRed > xIsNone) && (xIsRed > xIsGreen);
-            bNoneGreatest = !bGreenGreatest && !bRedGreatest;
-
-            xLastChipColor = xChipColor;
-            if (bNoneGreatest) xChipColor = NONE;
-            if (bGreenGreatest) xChipColor = GREEN;
-            if (bRedGreatest) xChipColor = RED;
-            lChangedCnt += (bChanged()) ? 1 : 0;
-        }
-
-        int lGetChangedCnt()
-        {
-            return lChangedCnt;
-        }
-
-        void vResetChangedCnt()
-        {
-            lChangedCnt = 0;
-        }
-
-        bool bChanged()
-        {
-            return xChipColor != xLastChipColor;
-        }
-
-        template<size_t N>
-        bool bNotNoneAndTheSameNTimes() // Enterprise edition!!!!
-        {
-            if (xChipColor == xLastChipColor)
+            if (bEnabled)
             {
-                    return (++lInARowCnt == N) ? true : false;
+                xChipColorNone.vUpdate(xNoneFreq);
+                xChipColorGreen.vUpdate(xGreenFreq);
+                xChipColorRed.vUpdate(xRedFreq);
+
+                float xIsNone = xChipColorNone.xMean();
+                float xIsGreen = xChipColorGreen.xMean();
+                float xIsRed = xChipColorRed.xMean();
+
+                bGreenGreatest = bRedGreatest = bNoneGreatest = false;
+                bGreenGreatest = (xIsGreen > xIsNone) && (xIsGreen > xIsRed);
+                bRedGreatest = (xIsRed > xIsNone) && (xIsRed > xIsGreen);
+
+                ChipColor_t xTempChipColor = NONE;
+                if (bGreenGreatest) xTempChipColor = GREEN;
+                else if (bRedGreatest) xTempChipColor = RED;
+
+                if (xTempChipColor == NONE)
+                {
+                    lInARowCnt = 0;
+                    return;
+                }
+
+                if (xLastChipColor == NONE)
+                {
+                    xLastChipColor = xTempChipColor;
+                    lInARowCnt++;
+                    return;
+                }
+
+                // xTempChipColor is either red or blue,
+                // xLastChipColor is red or blue
+                if (xTempChipColor == xLastChipColor)
+                {
+                    if (lInARowCnt++ == (int)lTimesRepeatedForMax)
+                    {
+                        xKnownChipColor = xLastChipColor;
+                        bEnabled = false;
+                    }
+                }
+                else
+                {
+                    lInARowCnt = 1;
+                }
             }
-            return false;
+        }
+
+        bool bChipKnown()
+        {
+            return !bEnabled;
+        }
+
+        void vResetCounters()
+        {
+            xChipColorNone.vReset();
+            xChipColorGreen.vReset();
+            xChipColorRed.vReset();
+
+            xKnownChipColor = NONE;
+            xLastChipColor = NONE;
+
+            bNoneGreatest = true;
+            bGreenGreatest = false;
+            bRedGreatest = false;
+            bEnabled = true;
+        }
+
+        int lGetInARowCnt()
+        {
+            return lInARowCnt;
         }
 
         float xGetColor(StatEnum_t xStatEnum)
@@ -131,7 +160,7 @@ class Chip_t
             return xChipColorNone.xStat(xStatEnum);
         }
 
-        PointEMA_t xPtLocation;
+        PointEMA_t xPtLoc;
 
     private:
 
@@ -139,16 +168,18 @@ class Chip_t
         StatEMA_t xChipColorGreen;
         StatEMA_t xChipColorRed;
 
-        ChipColor_t xChipColor;
+        ChipColor_t xKnownChipColor;
         ChipColor_t xLastChipColor;
 
         bool bNoneGreatest;
         bool bGreenGreatest;
         bool bRedGreatest;
+        bool bEnabled;
 
-        int lChangedCnt;
-        size_t lInARowCnt;
+        int lInARowCnt;
+        int lTimesRepeatedForMax; // Enterprise strength!
         float xLastKnownColorFreq;
+
 };
 
 } // namespace pixy

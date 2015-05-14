@@ -101,12 +101,12 @@ class PixyBrain_t
         int lSampleChips(PixyEyes_t* pPixyEyes)
         {
             std::vector<Block_t> xBlocks;
-            std::vector<std::pair<size_t, ChipColor_t>> xSeenChips;
+            std::vector<std::pair<int, ChipColor_t>> xSeenChips;
             pPixyEyes->ulSeenBlocks(xBlocks);
-            pBoard->vCalcSeenChips(xBlocks, xSeenChips);
+            this->pBoard->vCalcSeenChips(xBlocks, xSeenChips);
             this->xLastSeen = xSeenChips;
-            pBoard->vUpdate(xSeenChips);
-            return pBoard->lChipChanged();
+            this->pBoard->vUpdate(xSeenChips);
+            return this->pBoard->lChipChanged();
         }
 
         int lGetUpdate()
@@ -123,11 +123,15 @@ class PixyBrain_t
         void vPrintChips(Board_t::PrintMode_t xPrintMode,
                          bool bPrintLastSeen = false)
         {
-            std::vector<std::pair<size_t, ChipColor_t>> xSeenChips = (bPrintLastSeen) ? this->xLastSeen : std::vector<std::pair<size_t, ChipColor_t>>();
+            std::vector<std::pair<int, ChipColor_t>> xSeenChips;
+            if (bPrintLastSeen)
+            {
+                xSeenChips = this->xLastSeen;
+            }
             switch (xPrintMode)
             {
                 case Board_t::LOCATION: pBoard->vLocationPrint(); break;
-                case Board_t::COLOR: pBoard->vColorPrint(xSeenChips, true); break;
+                case Board_t::COLOR: pBoard->vColorPrint(xSeenChips, false); break;
                 case Board_t::OPENCV_META: pBoard->vOpenCVPrint(); break;
             }
         }
@@ -185,7 +189,7 @@ class PixyBrain_t
         std::queue<std::string> xErrorQueue;
         std::queue<int> xUpdateQueue;
 
-        std::vector<std::pair<size_t, ChipColor_t>> xLastSeen;
+        std::vector<std::pair<int, ChipColor_t>> xLastSeen;
         Corners_t xLastCorners;
 
         ChipColor_t eColorCalib;

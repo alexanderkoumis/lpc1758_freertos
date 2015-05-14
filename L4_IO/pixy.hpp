@@ -106,7 +106,6 @@ class Pixy_t
                 int lChipSample = pPixyBrain->lSampleChips(pPixyEyes.get());
                 if (lChipSample > 0)
                 {
-                    std::cout << "Insertion Row: " << lChipSample << std::endl;
                     pPixyBrain->vPrintChips(Board_t::COLOR, true);
                 }
                 eState = RUN;
