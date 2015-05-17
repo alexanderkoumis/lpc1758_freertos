@@ -21,6 +21,7 @@ class Board_t
 {
     public:
         enum PrintMode_t {LOCATION, COLOR, OPENCV_META};
+        enum RowOrCol_t {ROW, COL};
 
         Board_t() : xWatchedChips(7), ulRows(6), ulCols(7),
                     xPointEMA_alpha(CHIP_LOC_EMA_ALPHA),
@@ -39,7 +40,7 @@ class Board_t
             {
                 xWatchedChip.vReset();
             }
-            vPayAttentionTo(0, 0, 0, 0, 0, 0, 0);
+            vPayAttentionTo(-1, 0, 0, 0, 0, 0, -1);
         }
 
         void vAdjustEMAAlpha(bool bEMAAlphaUp)
@@ -256,41 +257,35 @@ class Board_t
                 {
                     continue;
                 }
-                int xNoneCnt = 0;
-                int xGreenCnt = 0;
-                int xRedCnt = 0;
-
+                int lNoneCnt = 0;
+                int lGreenCnt = 0;
+                int lRedCnt = 0;
                 int lRow = xWatchedCols[lCol];
-                int lBoardIdx = ((int)ulRows-lRow-1) * ulCols + lCol;
-
                 for (auto& xSeenChip : xSeenChips)
                 {
-//                  std::cout << "Checking out [" << lRow << "][" << lCol << "]"
-//                            << "(" << lBoardIdx << "):"
-//                            << xSeenChip.first << std::endl;
-                    if (lRow < 0 || lRow > 5)
+                    if (!bInBounds<ROW>(lRow))
                     {
                         std::cout << "Warning, lRow in vUpdate is: " << lRow
                                   << ", xWatchedCols[" << lCol << "]: "
                                   << xWatchedCols[lCol] << std::endl;
                     }
-                    if (xSeenChip.first == lBoardIdx)
+                    if (xSeenChip.first == lBoardIdx(lRow, lCol))
                     {
                         switch (xSeenChip.second)
                         {
-                            case NONE: xNoneCnt++; break;
-                            case GREEN: xGreenCnt++; break;
-                            case RED: xRedCnt++; break;
+                            case NONE: lNoneCnt++; break;
+                            case GREEN: lGreenCnt++; break;
+                            case RED: lRedCnt++; break;
                         }
                     }
                 }
-                if (xNoneCnt || xGreenCnt || xRedCnt)
+                if (lNoneCnt || lGreenCnt || lRedCnt)
                 {
-                    std::cout << "This many: n" << xNoneCnt
-                              << ", g: " << xGreenCnt
-                              << ", r: " << xRedCnt << std::endl;
-                    xWatchedChips[lCol].vUpdateFreq(xNoneCnt, xGreenCnt,
-                                                    xRedCnt);
+//                    std::cout << "This many: n" << xNoneCnt
+//                              << ", g: " << xGreenCnt
+//                              << ", r: " << xRedCnt << std::endl;
+                    xWatchedChips[lCol].vUpdateFreq(lNoneCnt, lGreenCnt,
+                                                    lRedCnt);
                 }
             }
         }
@@ -303,14 +298,13 @@ class Board_t
             // For every entry in size 7 vector of "watched col heights"
             // (ex: [-1 0 0 0 0 0 -1])
             int lCols = xWatchedCols.size();
+
             for (int lCol = 0; lCol < lCols; ++lCol)
             {
-                // Get current column height
-                int lHeight = xWatchedCols[lCol];
-                int lBoardIdx = (ulRows - lHeight - 1) * ulCols + lCol;
+                // Get current column height/rows
+                int lRow = xWatchedCols[lCol];
 
-                // Out of bounds
-                if ((lHeight < 0) || (lHeight > (ulRows - 1))) continue;
+                if (!bInBounds<ROW>(lRow)) continue;
 
                 // Dereference chip in current column (xWatchedChips same
                 // size as xWatchedCols
@@ -319,13 +313,61 @@ class Board_t
                 // Ask if it has been the same for the last two samples
                 if (xChip.bChipKnown())
                 {
-                    xAllChips[lBoardIdx].vSet(xChip.xMaxChip());
+                    xAllChips[lBoardIdx(lRow, lCol)].vSet(xChip.xMaxChip());
                     xWatchedChips[lCol].vResetCounters();
                     xWatchedCols[lCol]++;
-                    return ((ulRows-lHeight)*ulCols+lCol);
+                    return lBoardIdx(lRow, lCol);
                 }
             }
             return -1;
+        }
+
+        int lInsert(PixyCmd_t& xInsertCmd)
+        {
+            int lCol = xInsertCmd.lColumn;
+            std::cout << "lCol: " << lCol << std::endl;
+
+            if (bInBounds<COL>(lCol))
+            {
+                ChipColor_t xChipColor = (ChipColor_t)xInsertCmd.lColor;
+                int lRow = xWatchedCols[lCol];
+                if (!bInBounds<ROW>(lRow)) return -1;
+                xAllChips[lBoardIdx(lRow, lCol)].vSet(xChipColor);
+                xWatchedChips[lCol].vResetCounters();
+                xWatchedCols[lCol]++;
+                return lRow + 1;
+            }
+            return -2;
+        }
+
+        template <RowOrCol_t R_O_C>
+        bool bInBounds(int lIdx)
+        {
+            bool bReturn = lIdx >= 0;
+            switch(R_O_C)
+            {
+                case ROW:
+                {
+                    bReturn = (lIdx <= ulRows - 1) && bReturn;
+                    break;
+                }
+                case COL:
+                {
+                    bReturn = (lIdx <= ulCols - 1) && bReturn;
+                    break;
+                }
+            }
+            return bReturn;
+        }
+
+        int lBoardIdx(const int lRow, const int lCol)
+        {
+            return (ulRows - lRow - 1) * ulCols + lCol;
+        }
+
+        int lRowFromIdx(const int lBoardIdx_arg)
+        {
+            return (ulRows - (lBoardIdx_arg / ulCols) - 1);
         }
 
         uint32_t ulExpectedTotalChips()

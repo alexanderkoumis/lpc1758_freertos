@@ -31,9 +31,17 @@
  * Enumeration of shared handles
  * You can add additional IDs here to use addSharedHandle() and getSharedHandle() API
  */
+
+struct PixyCmd_t
+{
+    int lColumn;
+    int lColor;
+};
+
 enum {
     shared_SensorQueue,    ///< Shared handle used by examples (producer and consumer tasks)
     shared_learnSemaphore, ///< Terminal command gives this semaphore to remoteTask (IR sensor task)
+    shared_PixyQueue
 };
 
 

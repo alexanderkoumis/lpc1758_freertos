@@ -30,7 +30,6 @@ class Chip_t
 
         void vReset()
         {
-            xPtLoc.vReset();
             this->vResetCounters();
         }
 

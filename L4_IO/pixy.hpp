@@ -5,6 +5,8 @@
 #include <map>
 #include <functional>
 
+#include "shared_handles.h"
+
 #include "pixy/config.hpp"
 #include "pixy/common.hpp"
 #include "pixy/common/func_map.hpp"
@@ -18,6 +20,10 @@ namespace team9
 namespace pixy
 {
 
+typedef enum {
+    shared_motor_queue
+} sharedHandleId_t;
+
 class Pixy_t
 {
     public:
@@ -28,8 +34,8 @@ class Pixy_t
             EMA_ALPHA_DOWN=0x04, // SW(3)
             SW_4=0x08,           // SW(4)
             CALIB=16,
-            RUN=17,
-            UPDATE=18,
+            WAITING_FOR_HUMAN=17,
+            WAITING_FOR_BOT=18,
             ERROR=19
         } eState, eLastState;
 
@@ -93,7 +99,7 @@ class Pixy_t
                 if (pPixyBrain->vCalibBoard(pPixyEyes.get()))
                 {
                     pPixyBrain->vPrintCorners(Board_t::LOCATION);
-                    eState = RUN;
+                    eState = WAITING_FOR_HUMAN;
                 }
                 else
                 {
@@ -101,23 +107,52 @@ class Pixy_t
                 }
             });
 
-            xFuncMap->vSetHandler(RUN, [&] ()
+            xFuncMap->vSetHandler(WAITING_FOR_HUMAN, [&] ()
             {
-                int lChipSample = pPixyBrain->lSampleChips(pPixyEyes.get());
-                if (lChipSample > 0)
+                int lHumanCol = pPixyBrain->lSampleChips(pPixyEyes.get());
+                if (lHumanCol > 0)
                 {
                     pPixyBrain->vPrintChips(Board_t::COLOR, true);
+                    eState = WAITING_FOR_BOT;
                 }
-                eState = RUN;
+                else
+                {
+                    eState = WAITING_FOR_HUMAN;
+                }
+                pPixyBrain->vPrintCorners(Board_t::COLOR);
             });
 
-            xFuncMap->vSetHandler(UPDATE, [&] ()
+            xFuncMap->vSetHandler(WAITING_FOR_BOT, [&] ()
             {
-                if (!pPixyMouth->xEmitUpdate(pPixyBrain->lGetUpdate()))
+                PixyCmd_t xBotInsertCmd;
+                if (xQueueReceive(
+                        scheduler_task::getSharedObject(shared_PixyQueue),
+                        &xBotInsertCmd, portMAX_DELAY))
                 {
-                    eState = ERROR;
-                };
-                eState = RUN;
+                    std::cout << "command column: " << xBotInsertCmd.lColumn << "\n"
+                              << "command color: " << xBotInsertCmd.lColor << std::endl;
+                    ChipColor_t xChipColor = (ChipColor_t)xBotInsertCmd.lColor;
+                    int lColumn = xBotInsertCmd.lColumn;
+                    int lNewRow = pPixyBrain->lBotInsert(xBotInsertCmd);
+                    if (lNewRow > 0)
+                    {
+                        std::cout << "After insertion of color " << xChipColor
+                                  << " into column " << lColumn
+                                  << ", column height is now: " << lNewRow
+                                  << std::endl;
+                    }
+                    else
+                    {
+                        eState = ERROR;
+                        return;
+                    }
+                    pPixyBrain->vPrintChips(Board_t::COLOR, true);
+                    eState = WAITING_FOR_HUMAN;
+                }
+                else
+                {
+                    eState = WAITING_FOR_BOT;
+                }
             });
 
             xFuncMap->vSetHandler(ERROR, [&] ()
@@ -130,7 +165,8 @@ class Pixy_t
         void vInitMapStr()
         {
             xStringMap[CALIB] = std::string("CALIB");
-            xStringMap[RUN] = std::string("RUN");
+            xStringMap[WAITING_FOR_BOT] = std::string("WAITING_FOR_BOT");
+            xStringMap[WAITING_FOR_HUMAN] = std::string("WAITING_FOR_HUMAN");
             xStringMap[ERROR] = std::string("ERROR");
         }
 

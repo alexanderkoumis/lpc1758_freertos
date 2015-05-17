@@ -33,6 +33,8 @@
 
 #include "pixy.hpp"
 
+#include "event_groups.h"
+
 class terminalTask : public scheduler_task
 {
     public:
@@ -73,7 +75,9 @@ class PixyTask_t : public scheduler_task
 				scheduler_task("pixy", 2048, ucPriority),
 				pPixy(new Pixy_t(CHIPS_AT_A_TIME, CHIPS_TO_CALIB, GREEN))
 		{
-			ssp1_set_max_clock(1);
+            QueueHandle_t xQueueHandle = xQueueCreate(1, sizeof(PixyCmd_t));
+            addSharedObject(shared_PixyQueue, xQueueHandle);
+            ssp1_set_max_clock(1);
 			delay_ms(128);
 			while(LPC_SSP1->SR & (1 << 4));
 			LPC_GPIO0->FIOCLR = (1 << 16); // P0[16] as SSP1
@@ -85,7 +89,6 @@ class PixyTask_t : public scheduler_task
             bool bSwInit = xSwitches.init();
             return bSwInit;
         }
-
 
         bool run(void *p)
         {

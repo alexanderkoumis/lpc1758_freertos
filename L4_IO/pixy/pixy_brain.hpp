@@ -25,7 +25,8 @@ class PixyBrain_t
                 eColorCalib(eColorCalib_arg),
                 ulChipsToCalib(ulChipsToCalib_arg),
                 usCamRows(200), usCamCols(320),
-                usCamRowsHalf(usCamRows/2), usCamColsHalf(usCamCols/2)
+                usCamRowsHalf(usCamRows/2),
+                usCamColsHalf(usCamCols/2)
         {}
 
         void vReset()
@@ -107,6 +108,20 @@ class PixyBrain_t
             this->xLastSeen = xSeenChips;
             this->pBoard->vUpdate(xSeenChips);
             return this->pBoard->lChipChanged();
+        }
+
+        int lBotInsert(PixyCmd_t& xInsertCmd)
+        {
+            int lNewRow = pBoard->lInsert(xInsertCmd);
+            if (lNewRow == -1)
+            {
+                xErrorQueue.push("Row overflowing!");
+            }
+            if (lNewRow == -2)
+            {
+                xErrorQueue.push("Column value out of bounds");
+            }
+            return lNewRow;
         }
 
         int lGetUpdate()

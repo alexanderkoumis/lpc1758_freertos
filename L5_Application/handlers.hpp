@@ -25,7 +25,8 @@
 
 #include "command_handler.hpp"
 
-
+/// HANDLER FOR PIXY STUFF
+CMD_HANDLER_FUNC(pixyHandler);
 
 /// Handler for task list & CPU Information
 CMD_HANDLER_FUNC(taskListHandler);

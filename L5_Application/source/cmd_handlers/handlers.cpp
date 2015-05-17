@@ -20,6 +20,9 @@
 #include <string.h>
 #include <time.h>
 
+#include <string>
+#include <sstream>
+
 #include "FreeRTOS.h"
 #include "task.h"               // uxTaskGetSystemState()
 
@@ -46,6 +49,61 @@
 #include "c_tlm_var.h"
 
 
+
+CMD_HANDLER_FUNC(pixyHandler)
+{
+    char *opStr = NULL;
+    char *colorStr = NULL;
+    char *columnStr = NULL;
+    PixyCmd_t xPixyCmd;
+
+    int numArgs = cmdParams.tokenize(" ", 3, &opStr, &colorStr, &columnStr);
+    if (numArgs < 3)
+    {
+        output.printf("%s\nAt least three args required!\n");
+        return false;
+    }
+    else
+    {
+        QueueHandle_t xQueueHandle;
+
+        int lTempColumn = 0;
+        std::string columnStrForReal(columnStr);
+        std::istringstream xIss(columnStrForReal);
+
+        if ((strcmp(colorStr, "G") == 0) || (strcmp(colorStr, "g") == 0))
+        {
+            xPixyCmd.lColor = 1;
+        }
+        else if ((strcmp(colorStr, "R") == 0) || (strcmp(colorStr, "r") == 0))
+        {
+            xPixyCmd.lColor = 2;
+        }
+        else
+        {
+            output.printf("Error, %s is not a valid color enum", colorStr);
+            return false;
+        }
+
+        xIss >> lTempColumn;
+
+        if (lTempColumn < 0 || lTempColumn > 6)
+        {
+            output.printf("Error inserting chip in column %d", lTempColumn);
+            return false;
+        }
+
+        xPixyCmd.lColumn = lTempColumn;
+
+        output.printf("Inserting %s chip into column %d\n", colorStr,
+                      lTempColumn);
+        xQueueHandle = scheduler_task::getSharedObject(shared_PixyQueue);
+        xQueueSend(xQueueHandle, &xPixyCmd, portMAX_DELAY);
+        return true;
+    }
+    return true;
+
+}
 
 CMD_HANDLER_FUNC(taskListHandler)
 {

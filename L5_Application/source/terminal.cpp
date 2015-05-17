@@ -70,6 +70,8 @@ bool terminalTask::taskEntry()
     /* remoteTask() creates shared object in its init(), so we can get it now */
     CommandProcessor &cp = mCmdProc;
 
+    cp.addHandler(pixyHandler, "pixy", "'pixy insert 3 (inserts chip in col 3");
+
     // System information handlers
     cp.addHandler(taskListHandler, "info",    "Task/CPU Info.  Use 'info 200' to get CPU during 200ms");
     cp.addHandler(memInfoHandler,  "meminfo", "See memory info");
@@ -172,7 +174,7 @@ bool terminalTask::taskEntry()
 
 bool terminalTask::run(void* p)
 {
-    printf("LPC: ");
+//    printf("LPC: ");
     cmdChan_t cmdChannel = getCommand();
 
     // If no command, try to save disk data (persistent variables)
