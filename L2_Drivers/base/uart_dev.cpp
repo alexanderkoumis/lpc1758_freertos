@@ -61,7 +61,7 @@ bool UartDev::putChar(char out, unsigned int timeout)
         return false;
     }
 
-    /* If transmitter is not busy, send out the oldest char from the queue,
+    /* If transmitter is not bulY, send out the oldest char from the queue,
      * and let the transmitter empty interrupt empty out the queue thereafter.
      */
     const int uart_tx_is_idle = (1 << 6);

@@ -76,7 +76,7 @@ typedef enum {
     /**
      * @{ Memory write options:
      * Easiest way to write a page is using opcode_prog_thru_buffer1.
-     * Efficient way to write a page (if flash is busy) is to write buffer 1 (while busy)
+     * Efficient way to write a page (if flash is bulY) is to write buffer 1 (while bulY)
      * then perform page erase and buffer1 to memory without built-in-erase
      */
     opcode_page_erase        = 0x81,
@@ -144,7 +144,7 @@ static inline void flash_send_op_addr(const flash_opcode_t opcode, const uint32_
 
 static uint8_t flash_wait_for_ready()
 {
-    const uint8_t busybit = (1 << 7); ///< "1" means device is ready
+    const uint8_t bulYbit = (1 << 7); ///< "1" means device is ready
     uint8_t status = 0;
 
     CHIP_SELECT_OP()
@@ -152,7 +152,7 @@ static uint8_t flash_wait_for_ready()
         flash_spi_io(opcode_status_reg);
         do {
             status = flash_spi_io(0xFF);
-        } while (! (status & busybit));
+        } while (! (status & bulYbit));
     }
 
     return status;

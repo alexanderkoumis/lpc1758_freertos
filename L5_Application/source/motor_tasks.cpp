@@ -18,7 +18,7 @@ MotorTask_t::MotorTask_t (uint8_t ucPriority) :
     ulSysClk = sys_get_cpu_clock();
     vInitGPIO();
     vInitPWM();
-    ulSetFrequency(motor_freq);
+    ulSetFrequency(xMotorFreq);
 }
 
 void MotorTask_t::vInitGPIO()
@@ -49,14 +49,13 @@ bool MotorTask_t::run(void *p)
     xMotorCommand_t xMotorCommandRX;
     bool xMotorCommandTX = true;
     if (xQueueReceive(getSharedObject(shared_MotorQueueRX),
-                      &xMotorCommandRX,
-                      portMAX_DELAY))
+                      &xMotorCommandRX, portMAX_DELAY))
     {
         xPWM_EN.setHigh();
         delay_ms(10);
         xPWM_DIR.set(xMotorCommandRX.eDirection == eDirection_t::LEFT ? true : false);
         delay_ms(10);
-        uint32_t ulCyclesPerStep = ulSetFrequency(motor_freq);
+        uint32_t ulCyclesPerStep = ulSetFrequency(xMotorFreq);
         vStartCounter();
         vPollEnd(ulCyclesPerStep, xMotorCommandRX);
         xPWM_DIR.setLow();
@@ -69,8 +68,8 @@ bool MotorTask_t::run(void *p)
 
 uint32_t MotorTask_t::ulSetFrequency(float ulFreqHz)
 {
-    float ulCntFreq = (1.0 * ulSysClk) / ulPclkDivider;  // 6MHz iff 48MHz / 8
-    uint32_t ulLimitReg = ulCntFreq / (uxStepsPerRot * ulFreqHz) + 0.5;
+    float ulCntFreq = (1.0 * ulSysClk) / lPclkDivider;  // 6MHz iff 48MHz / 8
+    uint32_t ulLimitReg = ulCntFreq / (lStepsPerRot * ulFreqHz) + 0.5;
     LPC_MCPWM->MCPER0 = ulLimitReg;                 // Setting Limit register
     LPC_MCPWM->MCPW0 = ulLimitReg / 2.0 + 0.5;      // Setting Match register
     return ulLimitReg;
@@ -85,7 +84,7 @@ void MotorTask_t::vPollEnd(uint32_t ulCyclesPerStep,
     uint32_t ulUpperThresh = ulCyclesPerStep * 0.9;
     uint32_t ulLowerThresh = ulCyclesPerStep * 0.1;
     uint32_t ulStepCount = 0;
-    uint32_t ulStepMax = uxStepsPerRot * xMotorCommand.xRotations;
+    uint32_t ulStepMax = lStepsPerRot * xMotorCommand.xRotations;
 
     while(1 == 1)
     {

@@ -16,14 +16,13 @@
  *          p r e e t . w i k i @ g m a i l . c o m
  */
 
-/**
- * @file
- * @brief Contains FreeRTOS Tasks
- */
 #ifndef TASKS_HPP_
 #define TASKS_HPP_
 
+#include <memory>
+
 #include "scheduler_task.hpp"
+#include "event_groups.h"
 #include "soft_timer.hpp"
 #include "command_handler.hpp"
 #include "wireless.h"
@@ -31,17 +30,13 @@
 
 #include "FreeRTOS.h"
 #include "semphr.h"
+#include "io.hpp"
 
 #include "gpio.hpp"
 
 #include "lpc_pwm.hpp"
+#include "pixy.hpp"
 
-/**
- * Terminal task is our UART0 terminal that handles our commands into the board.
- * This also saves and restores the "disk" telemetry.  Disk telemetry variables
- * are automatically saved and restored across power-cycles to help us preserve
- * any non-volatile information.
- */
 class terminalTask : public scheduler_task
 {
     public:
@@ -74,53 +69,54 @@ class terminalTask : public scheduler_task
 namespace team9
 {
 
+enum eGame_t {DEBUG, COMPETE};
 enum eDirection_t {LEFT, RIGHT};
 
 struct xMotorCommand_t
 {
     xMotorCommand_t(void) : eDirection(LEFT), xRotations(0.0) {}
-    xMotorCommand_t(eDirection_t direction, float& rotations) :
-        eDirection(LEFT), xRotations(rotations) {}
-    void Load(eDirection_t direction, float rotations)
+    xMotorCommand_t(eDirection_t xDirection_arg, float& xRotations_arg) :
+        eDirection(LEFT), xRotations(xRotations_arg) {}
+    void Load(eDirection_t eDirection_arg, float xRotation_arg)
     {
-        eDirection = direction;
-        xRotations = rotations;
+        eDirection = eDirection_arg;
+        xRotations = xRotation_arg;
     }
     eDirection_t eDirection;
-	float xRotations;
+    float xRotations;
 };
 
-
-enum eGame_t {debug, compete};
-
-struct xGameCommand_t {
-        xGameCommand_t(void) : eGame(debug), xColumn(0) {}
-        void Load(eGame_t game_t, int column) {
-            eGame = game_t;
-            xColumn = column;
+struct GameCommand_t
+{
+        GameCommand_t(void) : eGame(DEBUG), ucCol(0) {}
+        void Load(eGame_t eGame_arg, int ucCol_arg)
+        {
+            eGame = eGame_arg;
+            ucCol = ucCol_arg;
         }
         eGame_t eGame;
-        uint8_t xColumn;
+        uint8_t ucCol;
 };
 
 class GameTask_t : public scheduler_task
 {
     public:
-        GameTask_t (uint8_t priority);
+        GameTask_t (uint8_t ucPriority);
         bool run(void *p);
+
     private:
-        PWM *my_servo;
+        PWM *xServo;
         //PWM my_servo(PWM::pwm2, 50);
-        const float closed_pwm = 5.5;
-        const float open_pwm = 11.5;
-        void run_servo(int drop_count);
-        void run_stepper(uint8_t insert_column);
+        const float xClosedPWM = 5.5;
+        const float xOpenPWM = 11.5;
+        void vRunServo(int lDropCount);
+        void vRunStepper(uint8_t ucInsertCol);
 };
 
 class MotorTask_t : public scheduler_task
 {
 	public:
-		MotorTask_t (uint8_t priority);
+		MotorTask_t (uint8_t ucPriority);
 		bool run(void *p);
 
 	private:
@@ -133,13 +129,49 @@ class MotorTask_t : public scheduler_task
 
 		GPIO xPWM_DIR;
 		GPIO xPWM_EN;
-        const int ulPclkDivider = 8;
-        const int uxStepsPerRot = 400;
-        float motor_freq = 0.5;
+        const int lPclkDivider = 8;
+        const int lStepsPerRot = 400;
         unsigned int ulSysClk;
+        float xMotorFreq = 0.5;
 };
 
-} // namespace team9
+namespace pixy
+{
 
+class PixyTask_t : public scheduler_task
+{
+    public:
+        PixyTask_t (uint8_t ucPriority) :
+				scheduler_task("pixy", 2048, ucPriority),
+				pPixy(new Pixy_t(CHIPS_AT_A_TIME, CHIPS_TO_CALIB, GREEN))
+		{
+            QueueHandle_t xQueueHandle = xQueueCreate(1, sizeof(PixyCmd_t));
+            addSharedObject(shared_PixyQueue, xQueueHandle);
+            ssp1_set_max_clock(1);
+			delay_ms(128);
+			while(LPC_SSP1->SR & (1 << 4));
+			LPC_GPIO0->FIOCLR = (1 << 16); // P0[16] as SSP1
+		}
+
+        bool init(void)
+        {
+            Switches& xSwitches = SW.getInstance();
+            bool bSwInit = xSwitches.init();
+            return bSwInit;
+        }
+
+        bool run(void *p)
+        {
+            pPixy->vAction(SW.getSwitchValues());
+            return true;
+        }
+
+    private:
+        std::unique_ptr<Pixy_t> pPixy;
+};
+
+} // namespace pixy
+
+} // namespace team9
 
 #endif /* TASKS_HPP_ */
