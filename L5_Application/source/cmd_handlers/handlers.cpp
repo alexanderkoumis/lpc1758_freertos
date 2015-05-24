@@ -21,6 +21,9 @@
 #include <string.h>
 #include <time.h>
 
+#include <string>
+#include <sstream>
+
 #include "FreeRTOS.h"
 #include "task.h"               // uxTaskGetSystemState()
 #include "tasks.hpp"
@@ -51,28 +54,42 @@
 
 #include "printf_lib.h"
 
-CMD_HANDLER_FUNC(gameHandler) {
-
+CMD_HANDLER_FUNC(gameHandler)
+{
     using namespace team9;
 
-    QueueHandle_t xGameQueueRX;
-    xGameCommand_t game_c;
     static const char *pcUsageStr = "gameplay (debug|compete) <column>";
 
+    QueueHandle_t xGameQueueRX;
+    GameCommand_t xGameCommand;
+
     char *pcGameType = NULL;
-    char *pcColumn = NULL;
-    int num_tokens = cmdParams.tokenize(" ", 2, &pcGameType, &pcColumn);
+    char *pcCol = NULL;
+    int lNumTokens = cmdParams.tokenize(" ", 2, &pcGameType, &pcCol);
 
+    if (lNumTokens != 2)
+    {
+    	u0_dbg_printf("Error! Wrong number of arguments. Expected 3, received %d\n"
+    		          "%s\n", lNumTokens - 1, pcUsageStr);
+    }
 
-    uint8_t xColumn = atoi(pcColumn);
+    uint8_t ucCol = atoi(pcCol);
+
+    if(strcmp(pcGameType, "debug") == 0)
+    {
+    	xGameCommand.Load(eGame_t::DEBUG, ucCol);
+    }
+    else if(strcmp(pcGameType, "compete") == 0)
+    {
+    	xGameCommand.Load(eGame_t::COMPETE, ucCol);
+    }
+    else
+    {
+        u0_dbg_printf("Error! %s is not a game type.\n%s\n", pcGameType, pcUsageStr);
+    }
+
     xGameQueueRX = scheduler_task::getSharedObject(shared_GameQueueRX);
-    if(strcmp(pcGameType, "debug") == 0) {
-        game_c.Load(eGame_t::debug, xColumn);
-    }
-    if(strcmp(pcGameType, "compete") == 0) {
-        game_c.Load(eGame_t::compete, xColumn);
-    }
-    xQueueSend(xGameQueueRX, &game_c, portMAX_DELAY);
+    xQueueSend(xGameQueueRX, &xGameCommand, portMAX_DELAY);
     return true;
 }
 
@@ -80,48 +97,112 @@ CMD_HANDLER_FUNC(motorHandler)
 {
     using namespace team9;
 
+    static const char* pcUsageStr = "motor (left|right) <revolutions>";
+
     xMotorCommand_t xMotorCommand;
     QueueHandle_t xMotorQueueRX;
     QueueHandle_t xMotorQueueTX;
+
     bool xMotorBool;
     bool wait = true;
-
-    static const char* pcUsageStr = "motor (left|right) <revolutions>";
 
     char *pcRotateDir = NULL;
     char *pcRotateAmt = NULL;
     float xRotations = 0.0;
+    int lNumTokens = cmdParams.tokenize(" ", 2, &pcRotateDir, &pcRotateAmt);
 
-    int num_tokens = cmdParams.tokenize(" ", 2, &pcRotateDir, &pcRotateAmt);
-    if (num_tokens < 2) {
-        output.printf("Error: At least two args are required\n%s\n", pcUsageStr);
+    if (lNumTokens < 2)
+    {
+        printf("Error: At least two args are required\n%s\n", pcUsageStr);
         return false;
     }
+
     xRotations = strtof(pcRotateAmt, NULL);
-    if (strcmp(pcRotateDir, "left") == 0) {
+
+    if (strcmp(pcRotateDir, "left") == 0)
+    {
         xMotorCommand.Load(eDirection_t::LEFT, xRotations);
     }
-    else if (strcmp(pcRotateDir, "right") == 0) {
+    else if (strcmp(pcRotateDir, "right") == 0)
+    {
         xMotorCommand.Load(eDirection_t::RIGHT, xRotations);
     }
-    else {
-        output.printf("Error: %s is not a recognized direction\n%s\n",
-                      pcRotateDir, pcUsageStr);
+    else
+    {
+        printf("Error: %s is not a recognized direction\n%s\n",
+        		pcRotateDir, pcUsageStr);
         return false;
     }
-    output.printf("Direction: %s\nNumber of cycles: %f\n",
+    printf("Direction: %s\nNumber of cycles: %s\n",
                   pcRotateDir, pcRotateAmt);
     xMotorQueueRX = scheduler_task::getSharedObject(shared_MotorQueueRX);
     xQueueSend(xMotorQueueRX, &xMotorCommand, portMAX_DELAY);
 
     xMotorQueueTX = scheduler_task::getSharedObject(shared_MotorQueueTX);
-    while(wait) {
-        if(xQueueReceive(xMotorQueueTX, &xMotorBool, portMAX_DELAY)) {
+    while(wait)
+    {
+        if(xQueueReceive(xMotorQueueTX, &xMotorBool, portMAX_DELAY))
+        {
             wait = false;
             //output.printf("On Top of the Column\n");
         }
     }
     return true;
+}
+
+CMD_HANDLER_FUNC(pixyHandler)
+{
+    char *opStr = NULL;
+    char *colorStr = NULL;
+    char *columnStr = NULL;
+    PixyCmd_t xPixyCmd;
+
+    int numArgs = cmdParams.tokenize(" ", 3, &opStr, &colorStr, &columnStr);
+    if (numArgs < 3)
+    {
+        output.printf("%s\nAt least three args required!\n");
+        return false;
+    }
+    else
+    {
+        QueueHandle_t xQueueHandle;
+
+        int lTempColumn = 0;
+        std::string columnStrForReal(columnStr);
+        std::istringstream xIss(columnStrForReal);
+
+        if ((strcmp(colorStr, "G") == 0) || (strcmp(colorStr, "g") == 0))
+        {
+            xPixyCmd.lColor = 1;
+        }
+        else if ((strcmp(colorStr, "R") == 0) || (strcmp(colorStr, "r") == 0))
+        {
+            xPixyCmd.lColor = 2;
+        }
+        else
+        {
+            output.printf("Error, %s is not a valid color enum", colorStr);
+            return false;
+        }
+
+        xIss >> lTempColumn;
+
+        if (lTempColumn < 0 || lTempColumn > 6)
+        {
+            output.printf("Error inserting chip in column %d", lTempColumn);
+            return false;
+        }
+
+        xPixyCmd.lColumn = lTempColumn;
+
+        output.printf("Inserting %s chip into column %d\n", colorStr,
+                      lTempColumn);
+        xQueueHandle = scheduler_task::getSharedObject(shared_PixyQueueTX);
+        xQueueSend(xQueueHandle, &xPixyCmd, portMAX_DELAY);
+        return true;
+    }
+    return true;
+
 }
 
 CMD_HANDLER_FUNC(taskListHandler)

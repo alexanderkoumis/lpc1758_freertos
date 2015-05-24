@@ -73,7 +73,8 @@ bool terminalTask::taskEntry()
 
     // Bluetooth handler
     cp.addHandler(motorHandler, "motor", "Specify direction to spin and number of revolutions. Ex: motor left 2.5");
-    cp.addHandler(gameHandler, "gameplay", "Specify which column to insert into and whether we're in debug or competition mode.");
+    cp.addHandler(gameHandler,  "gameplay", "Specify which column to insert into and whether we're in debug or competition mode.");
+    cp.addHandler(pixyHandler,  "pixy", "'pixy insert 3 (inserts chip in col 3");
 
     // System information handlers
     cp.addHandler(taskListHandler, "info",    "Task/CPU Info.  Use 'info 200' to get CPU during 200ms");
@@ -191,7 +192,7 @@ bool terminalTask::taskEntry()
 
 bool terminalTask::run(void* p)
 {
-    printf("LPC: ");
+//    printf("LPC: ");
     cmdChan_t cmdChannel = getCommand();
 
     // If no command, try to save disk data (persistent variables)
@@ -327,7 +328,7 @@ terminalTask::cmdChan_t terminalTask::getCommand(void)
             if (mCmdIface[idx].iodev->isReady() && mCmdIface[idx].iodev->getChar(&c, 0))
             {
                 ret = mCmdIface[idx];
-                terminalTask::handleEchoAndBackspace(&ret, c);
+                handleEchoAndBackspace(&ret, c);
 
                 mCmdTimer.reset();
                 gotChar = true;

@@ -73,6 +73,7 @@ class GameSocket(threading.Thread):
 
     def _send_data(self, column):
         send_data = 'gameplay debug {}'.format(column)
+        print send_data
         unsent = True
         while unsent:
             try:
@@ -84,6 +85,7 @@ class GameSocket(threading.Thread):
                 time.sleep(0.125)
 
     def get_move(self):
+        print 'waiting to get move'
         move = self.g_qt.get(block=True)
         print 'Move:', move
         self.g_qt.task_done()

@@ -1,87 +1,110 @@
+#include <stdio.h>
 
 #include "tasks.hpp"
 #include "utilities.h"
 #include "shared_handles.h"
-#include <stdio.h>
 
+#include "pixy/common.hpp"
 
 namespace team9
 {
 
-GameTask_t::GameTask_t (uint8_t ucPriority) : scheduler_task("ServoSlave", 512*8, ucPriority)
+GameTask_t::GameTask_t (uint8_t ucPriority) :
+		scheduler_task("ServoSlave", 512*8, ucPriority)
 {
     QueueHandle_t xQServoHandle = xQueueCreate(1, sizeof(int));
     QueueHandle_t xQGameHandleTX = xQueueCreate(1, sizeof(bool));
-    QueueHandle_t xQGameHandleRX = xQueueCreate(1, sizeof(xGameCommand_t));
+    QueueHandle_t xQGameHandleRX = xQueueCreate(1, sizeof(GameCommand_t));
 
     addSharedObject(shared_ServoQueue, xQServoHandle);
     addSharedObject(shared_GameQueueTX, xQGameHandleTX);
     addSharedObject(shared_GameQueueRX, xQGameHandleRX);
 
-    my_servo = new PWM(PWM::pwm2, 50);
-    my_servo->set(closed_pwm);
+    xServo = new PWM(PWM::pwm2, 50);
+    xServo->set(xClosedPWM);
 }
 
-void GameTask_t::run_servo(int drop_count)
+void GameTask_t::vRunServo(int lDropCount)
 {
-    int i=0;
-    for(i=0; i<drop_count; i++)
+    for(int lI = 0; lI < lDropCount; ++lI)
     {
-        my_servo->set(open_pwm);
+        xServo->set(xOpenPWM);
         vTaskDelayMs(1000*0.65);
-        my_servo->set(closed_pwm);
+        xServo->set(xClosedPWM);
         vTaskDelayMs(1000*1);
     }
 }
 
-void GameTask_t::run_stepper(uint8_t insert_column)
+void GameTask_t::vRunStepper(uint8_t ucInsertCol)
 {
     xMotorCommand_t xMotorCommand;
     QueueHandle_t xMotorQueueRX;
     QueueHandle_t xMotorQueueTX;
-    bool insert;
-    float xRotations = (0.5 * insert_column);
-    // Move over Column from home
 
+    bool bInsert;
+    float xRotations = (0.4833 * (ucInsertCol) + 1.6);
+
+    // Move over Column from home
     xMotorQueueRX = getSharedObject(shared_MotorQueueRX);
     xMotorCommand.Load(eDirection_t::LEFT, xRotations);
     xQueueSend(xMotorQueueRX, &xMotorCommand, portMAX_DELAY);
 
     // Wait till we're over the column.
     xMotorQueueTX = getSharedObject(shared_MotorQueueTX);
-    xQueueReceive(xMotorQueueTX, &insert, portMAX_DELAY);
+    xQueueReceive(xMotorQueueTX, &bInsert, portMAX_DELAY);
 
     // Drop the chip into the board.
-    this->run_servo(1);
+    this->vRunServo(1);
 
     // Send the platform back home.
     xMotorCommand.Load(eDirection_t::RIGHT, xRotations);
     xQueueSend(xMotorQueueRX, &xMotorCommand, portMAX_DELAY);
-    // Wait for Home
-    xQueueReceive(xMotorQueueTX, &insert, portMAX_DELAY);
-}
 
+    // Wait for Home
+    xQueueReceive(xMotorQueueTX, &bInsert, portMAX_DELAY);
+}
 
 bool GameTask_t::run(void *p)
 {
-    int xServoCommand;
-    int xGameCommand;
+    GameCommand_t xGameCommand;
+    PixyCmd_t xPixyCmd;
 
-    xGameCommand_t game_c;
+    QueueHandle_t xPixyTXHandle;
+    QueueHandle_t xPixyRXHandle;
 
-    uint8_t xColumn;
-    int steps;
-    bool sent = false;
+    int lHumanCol = 0;
 
-    if (xQueueReceive(getSharedObject(shared_GameQueueRX), &game_c, portMAX_DELAY))
+    // Receiving human chip insertion
+    printf("WAITING FOR SOME SHIT\n");
+    u0_dbg_printf("WAITING FOR SOME OTHER SHIT\n");
+
+    xPixyTXHandle = scheduler_task::getSharedObject(shared_PixyQueueTX);
+    xQueueReceive(xPixyTXHandle, &lHumanCol, portMAX_DELAY);
+
+
+    std::cout << "player move big dicks" << std::endl;
+
+    if (xQueueReceive(getSharedObject(shared_GameQueueRX), &xGameCommand,
+    				  portMAX_DELAY))
     {
-        this->run_stepper(game_c.xColumn);
+//        if(xGameCommand.eGame == eGame_t::COMPETE)
+//        {
+//            printf("player move A5B6_%d\n", lHumanCol);
+//        }
+//        else if(xGameCommand.eGame == eGame_t::DEBUG)
+//        {
+//            printf("machine move A5B6_%d\n", xGameCommand.ucCol);
+//        }
+        this->vRunStepper(xGameCommand.ucCol);
     }
-    if(game_c.eGame == eGame_t::compete) {
-        printf("player move A5B6_%d\n", game_c.xColumn);
-    } else if(game_c.eGame == eGame_t::debug) {
-        printf("machine move A5B6_%d\n", game_c.xColumn);
-    }
+
+    // Informing Pixy of robot's chip insertion
+    xPixyCmd.lColor = pixy::ChipColor_t::RED;
+    xPixyCmd.lColumn = xGameCommand.ucCol;
+
+    xPixyRXHandle = scheduler_task::getSharedObject(shared_PixyQueueRX);
+    xQueueSend(xPixyRXHandle, &xPixyCmd, portMAX_DELAY);
+
     return true;
 }
 
