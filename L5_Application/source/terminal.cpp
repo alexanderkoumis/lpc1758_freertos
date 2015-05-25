@@ -328,7 +328,7 @@ terminalTask::cmdChan_t terminalTask::getCommand(void)
             if (mCmdIface[idx].iodev->isReady() && mCmdIface[idx].iodev->getChar(&c, 0))
             {
                 ret = mCmdIface[idx];
-                terminalTask::handleEchoAndBackspace(&ret, c);
+                handleEchoAndBackspace(&ret, c);
 
                 mCmdTimer.reset();
                 gotChar = true;

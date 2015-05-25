@@ -15,6 +15,8 @@
 #include "pixy/pixy_eyes.hpp"
 #include "pixy/pixy_mouth.hpp"
 
+#include "printf_lib.h"
+
 namespace team9
 {
 namespace pixy
@@ -29,21 +31,28 @@ class Pixy_t
     public:
         enum State_t
         {
-            RESET=0x01,          // SW(1)
-            EMA_ALPHA_UP=0x02,   // SW(2)
-            EMA_ALPHA_DOWN=0x04, // SW(3)
-            SW_4=0x08,           // SW(4)
+            RESET=0x01,             // SW(1)
+            EMA_ALPHA_UP=0x02,      // SW(2)
+            EMA_ALPHA_DOWN=0x04,    // SW(3)
+            START=0x08,             // SW(4)
             CALIB=16,
             WAITING_FOR_HUMAN=17,
             WAITING_FOR_BOT=18,
-            ERROR=19
+            NOTIFY_BOT_OF_HUMAN_ACTIVIY=19,
+            WAITING_FOR_START=20,
+            ERROR=21
         } eState, eLastState;
 
-        Pixy_t ()
+        bool bStarted;
+        int lLastHumanCol;
+
+        Pixy_t () : bStarted(false), lLastHumanCol(-1), eState(CALIB), eLastState(CALIB)
         {}
 
         Pixy_t (uint32_t ulChipsAtATime, uint32_t ulChipsToCalib,
                 ChipColor_t eColorCalib) :
+                bStarted(false),
+                lLastHumanCol(-1),
                 eState(CALIB),
                 eLastState(CALIB),
                 pPixyBrain(new pixy::PixyBrain_t(eColorCalib, ulChipsToCalib)),
@@ -58,6 +67,11 @@ class Pixy_t
         void vAction(uint8_t xButton)
         {
             eLastState = eState;
+            u0_dbg_printf("State: %s\n", xStringMap[eState].c_str());
+            if (eLastState != eState)
+            {
+                u0_dbg_printf("CHANGE STATE\n");
+            }
             if (xButton)
             {
                 eState = (State_t)xButton;
@@ -70,8 +84,9 @@ class Pixy_t
         {
             xFuncMap->vSetHandler(RESET, [&] ()
             {
+                pPixyEyes->vReset();
                 pPixyBrain->vReset();
-                eState = CALIB;
+                eState = WAITING_FOR_START;
             });
 
             xFuncMap->vSetHandler(EMA_ALPHA_UP, [&] ()
@@ -88,10 +103,17 @@ class Pixy_t
                 eState = eLastState;
             });
 
-            xFuncMap->vSetHandler(SW_4, [&] ()
+            xFuncMap->vSetHandler(WAITING_FOR_START, [&] ()
             {
-                std::cout << "Switch 4 is unmapped" << std::endl;
-                eState = eLastState;
+                if (bStarted)
+                {
+                    eState = WAITING_FOR_HUMAN;
+                    return;
+                }
+                else
+                {
+                    eState = WAITING_FOR_START;
+                }
             });
 
             xFuncMap->vSetHandler(CALIB, [&] ()
@@ -99,7 +121,7 @@ class Pixy_t
                 if (pPixyBrain->vCalibBoard(pPixyEyes.get()))
                 {
                     pPixyBrain->vPrintCorners(Board_t::LOCATION);
-                    eState = WAITING_FOR_HUMAN;
+                    eState = WAITING_FOR_START;
                 }
                 else
                 {
@@ -107,13 +129,21 @@ class Pixy_t
                 }
             });
 
+            xFuncMap->vSetHandler(START, [&] ()
+            {
+                bStarted = true;
+                eState = WAITING_FOR_START;
+            });
+
             xFuncMap->vSetHandler(WAITING_FOR_HUMAN, [&] ()
             {
-                int lHumanCol = pPixyBrain->lSampleChips(pPixyEyes.get());
-                if (lHumanCol > 0)
+                lLastHumanCol = pPixyBrain->lSampleChips(pPixyEyes.get());
+                printf("Last Human Col: %d\n", lLastHumanCol);
+                u0_dbg_printf("Last Human Col: %d\n", lLastHumanCol);
+                if (lLastHumanCol >= 0)
                 {
                     pPixyBrain->vPrintChips(Board_t::COLOR, true);
-                    eState = WAITING_FOR_BOT;
+                    eState = NOTIFY_BOT_OF_HUMAN_ACTIVIY;
                 }
                 else
                 {
@@ -125,10 +155,16 @@ class Pixy_t
             xFuncMap->vSetHandler(WAITING_FOR_BOT, [&] ()
             {
                 PixyCmd_t xBotInsertCmd;
+                printf("Whats up did u send me shit bitch\n");
+                u0_dbg_printf("Whats up did u send me shit bitch\n");
+
                 if (xQueueReceive(
-                        scheduler_task::getSharedObject(shared_PixyQueue),
+                        scheduler_task::getSharedObject(shared_PixyQueueRX),
                         &xBotInsertCmd, portMAX_DELAY))
                 {
+                    printf("Fuck your bitch ass\n");
+                    u0_dbg_printf("Fuck your bitch ass\n");
+
                     std::cout << "command column: " << xBotInsertCmd.lColumn << "\n"
                               << "command color: " << xBotInsertCmd.lColor << std::endl;
                     ChipColor_t xChipColor = (ChipColor_t)xBotInsertCmd.lColor;
@@ -155,6 +191,20 @@ class Pixy_t
                 }
             });
 
+            xFuncMap->vSetHandler(NOTIFY_BOT_OF_HUMAN_ACTIVIY, [&] ()
+            {
+                printf("this what the fuck im sending: %d\n", lLastHumanCol);
+                u0_dbg_printf("this what the fuck im sending: %d\n", lLastHumanCol);
+
+                pPixyMouth->xEmitUpdate(lLastHumanCol);
+
+                printf("Alright we cool??\n");
+                u0_dbg_printf("Alright we cool??\n");
+
+                lLastHumanCol = -1;
+                eState = WAITING_FOR_BOT;
+            });
+
             xFuncMap->vSetHandler(ERROR, [&] ()
             {
                 std::cout << pPixyBrain->xGetErrors() << std::endl;
@@ -164,10 +214,16 @@ class Pixy_t
 
         void vInitMapStr()
         {
+            xStringMap[RESET] = std::string("RESET");
             xStringMap[CALIB] = std::string("CALIB");
             xStringMap[WAITING_FOR_BOT] = std::string("WAITING_FOR_BOT");
             xStringMap[WAITING_FOR_HUMAN] = std::string("WAITING_FOR_HUMAN");
+            xStringMap[NOTIFY_BOT_OF_HUMAN_ACTIVIY] = std::string("NOTIFY_BOT_OF_HUMAN_ACTIVIY");
             xStringMap[ERROR] = std::string("ERROR");
+            xStringMap[EMA_ALPHA_UP] = std::string("EMA_ALPHA_UP");
+            xStringMap[EMA_ALPHA_DOWN] = std::string("EMA_ALPHA_UP");
+            xStringMap[START] = std::string("START");
+            xStringMap[WAITING_FOR_START] = std::string("WAITING_FOR_START");
         }
 
         std::unique_ptr<pixy::PixyBrain_t> pPixyBrain;

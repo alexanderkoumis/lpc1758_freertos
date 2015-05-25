@@ -5,6 +5,7 @@
 #include <iostream>
 #include <queue>
 #include <algorithm>
+#include <stack>
 
 #include "pixy.hpp"
 #include "pixy/pixy_eyes.hpp"
@@ -22,6 +23,7 @@ class PixyBrain_t
     public:
         PixyBrain_t(ChipColor_t eColorCalib_arg, uint32_t ulChipsToCalib_arg) :
                 pBoard(new Board_t),
+                lLastInsertCol(0),
                 eColorCalib(eColorCalib_arg),
                 ulChipsToCalib(ulChipsToCalib_arg),
                 usCamRows(200), usCamCols(320),
@@ -57,7 +59,9 @@ class PixyBrain_t
             while (ulChips < ulChipsToCalib)
             {
                 std::vector<Block_t> xBlocks;
+                u0_dbg_printf("BLOCKS\n");
                 ulChips += pPixyEyes->ulSeenBlocks(xBlocks);
+                u0_dbg_printf("BLOCKS\n");
                 for (auto& xBlock : xBlocks)
                 {
                     if (xBlock.usSignature == eColorCalib)
@@ -77,7 +81,7 @@ class PixyBrain_t
                 case 0:
                 {
                     pBoard->xCorners = xCorners;
-                    pBoard->vPayAttentionTo(-1, 0, 0, 0, 0, 0, -1);
+                    pBoard->vPayAttentionTo(0, 0, 0, 0, 0, 0, 0);
                     return true;
                 }
                 case 1:
@@ -107,7 +111,10 @@ class PixyBrain_t
             this->pBoard->vCalcSeenChips(xBlocks, xSeenChips);
             this->xLastSeen = xSeenChips;
             this->pBoard->vUpdate(xSeenChips);
-            return this->pBoard->lChipChanged();
+            int lLastChipInserted = this->pBoard->lColChanged();
+            return lLastChipInserted;
+//            this->lLastInsertCol = lLastChipInserted;
+//            return lLastChipInserted;
         }
 
         int lBotInsert(PixyCmd_t& xInsertCmd)
@@ -126,13 +133,23 @@ class PixyBrain_t
 
         int lGetUpdate()
         {
-            if (xUpdateQueue.empty())
-            {
-                xErrorQueue.push("I have no updates for you! "
-                                 "What do you want??");
-                return -1;
-            }
-            return 0;
+            int lReturnVal = lLastInsertCol + 1;
+            return lReturnVal;
+//            if (xUpdateQueue.empty())
+//            {
+//                xErrorQueue.push("I have no updates for you! "
+//                                 "What do you want??");
+//                return -1;
+//            }
+//            int lLastInserted = xUpdateQueue.front();
+//            xUpdateQueue.pop();
+//            while (!xUpdateQueue.empty())
+//            {
+//                xErrorQueue.push("This should not be here: " +
+//                                 xUpdateQueue.front());
+//                xUpdateQueue.pop();
+//            }
+//            return lLastInserted;
         }
 
         void vPrintChips(Board_t::PrintMode_t xPrintMode,
@@ -203,9 +220,11 @@ class PixyBrain_t
 
         std::queue<std::string> xErrorQueue;
         std::queue<int> xUpdateQueue;
+        std::stack<int> xColUpdate;
 
         std::vector<std::pair<int, ChipColor_t>> xLastSeen;
         Corners_t xLastCorners;
+        int lLastInsertCol;
 
         ChipColor_t eColorCalib;
         uint32_t ulChipsToCalib;

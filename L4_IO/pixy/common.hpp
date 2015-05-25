@@ -16,7 +16,9 @@
 
 #include "printf_lib.h"
 
-#define F() std::cout << "Line: " << __LINE__ << ", func: " << __func__ << std::endl;
+
+//#define F() std::cout << "Line: " << __LINE__ << ", func: " << __func__ << std::endl;
+#define F() u0_dbg_printf("Line: %d, func: %s\n", __LINE__, __func__);
 
 namespace team9
 {

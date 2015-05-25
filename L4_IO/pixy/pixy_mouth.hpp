@@ -14,13 +14,23 @@ class PixyMouth_t
 		PixyMouth_t()
 		{}
 
-		bool xEmitUpdate(int lColUpdate)
+		bool xEmitUpdate(const int lColUpdate)
 		{
 		    if (lColUpdate < 0)
 		    {
 		        return false;
 		    }
 
+		    u0_dbg_printf("Trying to send %d over queue\n", lColUpdate);
+		    printf("Trying to send %d over queue\n", lColUpdate);
+
+		    printf("player move A5B6_%d\n", lColUpdate);
+		    u0_dbg_printf("player move A5B6_%d\n", lColUpdate);
+
+		    QueueHandle_t xQueueTXHandle =
+		            scheduler_task::getSharedObject(shared_PixyQueueTX);
+		    xQueueSend(xQueueTXHandle, &lColUpdate, portMAX_DELAY);
+		    printf("I just sent you this bro: %d\n", lColUpdate);
 		    return true;
 		}
 };

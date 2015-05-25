@@ -6,6 +6,7 @@
 #include "ssp1.h"
 #include "utilities.h"
 #include "printf_lib.h"
+#include "scheduler_task.hpp"
 
 #include "pixy/common.hpp"
 #include "pixy/common/block.hpp"
@@ -30,6 +31,10 @@ public:
         usRecvLast(0xffff)
     {
         vInitMapStr();
+    }
+
+    void vReset()
+    {
     }
 
     __inline uint16_t usGetShort()

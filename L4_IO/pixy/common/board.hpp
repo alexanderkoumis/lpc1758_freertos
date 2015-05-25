@@ -40,7 +40,7 @@ class Board_t
             {
                 xWatchedChip.vReset();
             }
-            vPayAttentionTo(-1, 0, 0, 0, 0, 0, -1);
+            vPayAttentionTo(0, 0, 0, 0, 0, 0, 0);
         }
 
         void vAdjustEMAAlpha(bool bEMAAlphaUp)
@@ -138,7 +138,7 @@ class Board_t
             {
                 case STUPID: vChipAlgoStupid(xBlocks, xSeenChips); break;
                 case DOWN_RIGHT: vChipAlgoDownRight(xBlocks, xSeenChips); break;
-                default: std::cout << "Error selecting seen chip algo.\n";
+                default: std::cout << "Error selecting seen chip algo.\n"; break;
             }
         }
 
@@ -290,7 +290,7 @@ class Board_t
             }
         }
 
-        int lChipChanged()
+        int lColChanged()
         {
             // Poll all of the watched chips (indexes stored in xWatchedCols)
             // asking if they are "not none and the same N times"
@@ -298,12 +298,17 @@ class Board_t
             // For every entry in size 7 vector of "watched col heights"
             // (ex: [-1 0 0 0 0 0 -1])
             int lCols = xWatchedCols.size();
+            printf("Now watching: ");
+            u0_dbg_printf("Now watching: ");
 
             for (int lCol = 0; lCol < lCols; ++lCol)
             {
+
                 // Get current column height/rows
                 int lRow = xWatchedCols[lCol];
 
+                printf(" %d", lRow);
+                u0_dbg_printf(" %d", lRow);
                 if (!bInBounds<ROW>(lRow)) continue;
 
                 // Dereference chip in current column (xWatchedChips same
@@ -316,9 +321,11 @@ class Board_t
                     xAllChips[lBoardIdx(lRow, lCol)].vSet(xChip.xMaxChip());
                     xWatchedChips[lCol].vResetCounters();
                     xWatchedCols[lCol]++;
-                    return lBoardIdx(lRow, lCol);
+                    return lCol;
                 }
             }
+            printf("\n");
+            u0_dbg_printf("\n");
             return -1;
         }
 
@@ -331,6 +338,8 @@ class Board_t
             {
                 ChipColor_t xChipColor = (ChipColor_t)xInsertCmd.lColor;
                 int lRow = xWatchedCols[lCol];
+                printf("lRow: %d\n", lRow);
+                u0_dbg_printf("lRow: %d\n", lRow);
                 if (!bInBounds<ROW>(lRow)) return -1;
                 xAllChips[lBoardIdx(lRow, lCol)].vSet(xChipColor);
                 xWatchedChips[lCol].vResetCounters();

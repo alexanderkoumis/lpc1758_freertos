@@ -1,9 +1,10 @@
+#include <stdio.h>
 
 #include "tasks.hpp"
 #include "utilities.h"
 #include "shared_handles.h"
-#include <stdio.h>
 
+#include "pixy/common.hpp"
 
 namespace team9
 {
@@ -41,7 +42,7 @@ void GameTask_t::vRunStepper(uint8_t ucInsertCol)
     QueueHandle_t xMotorQueueTX;
 
     bool bInsert;
-    float xRotations = (0.5 * ucInsertCol);
+    float xRotations = (0.4833 * (ucInsertCol) + 1.6);
 
     // Move over Column from home
     xMotorQueueRX = getSharedObject(shared_MotorQueueRX);
@@ -66,19 +67,44 @@ void GameTask_t::vRunStepper(uint8_t ucInsertCol)
 bool GameTask_t::run(void *p)
 {
     GameCommand_t xGameCommand;
+    PixyCmd_t xPixyCmd;
+
+    QueueHandle_t xPixyTXHandle;
+    QueueHandle_t xPixyRXHandle;
+
+    int lHumanCol = 0;
+
+    // Receiving human chip insertion
+    printf("WAITING FOR SOME SHIT\n");
+    u0_dbg_printf("WAITING FOR SOME OTHER SHIT\n");
+
+    xPixyTXHandle = scheduler_task::getSharedObject(shared_PixyQueueTX);
+    xQueueReceive(xPixyTXHandle, &lHumanCol, portMAX_DELAY);
+
+
+    std::cout << "player move big dicks" << std::endl;
+
     if (xQueueReceive(getSharedObject(shared_GameQueueRX), &xGameCommand,
     				  portMAX_DELAY))
     {
+//        if(xGameCommand.eGame == eGame_t::COMPETE)
+//        {
+//            printf("player move A5B6_%d\n", lHumanCol);
+//        }
+//        else if(xGameCommand.eGame == eGame_t::DEBUG)
+//        {
+//            printf("machine move A5B6_%d\n", xGameCommand.ucCol);
+//        }
         this->vRunStepper(xGameCommand.ucCol);
     }
-    if(xGameCommand.eGame == eGame_t::COMPETE)
-    {
-        printf("player move A5B6_%d\n", xGameCommand.ucCol);
-    }
-    else if(xGameCommand.eGame == eGame_t::DEBUG)
-    {
-        printf("machine move A5B6_%d\n", xGameCommand.ucCol);
-    }
+
+    // Informing Pixy of robot's chip insertion
+    xPixyCmd.lColor = pixy::ChipColor_t::RED;
+    xPixyCmd.lColumn = xGameCommand.ucCol;
+
+    xPixyRXHandle = scheduler_task::getSharedObject(shared_PixyQueueRX);
+    xQueueSend(xPixyRXHandle, &xPixyCmd, portMAX_DELAY);
+
     return true;
 }
 

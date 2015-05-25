@@ -67,10 +67,10 @@ CMD_HANDLER_FUNC(gameHandler)
     char *pcCol = NULL;
     int lNumTokens = cmdParams.tokenize(" ", 2, &pcGameType, &pcCol);
 
-    if (lNumTokens != 4)
+    if (lNumTokens != 2)
     {
-    	printf("Error! Wrong number of arguments. Expected 3, received %d\n"
-    		   "%s\n", lNumTokens - 1, pcUsageStr);
+    	u0_dbg_printf("Error! Wrong number of arguments. Expected 3, received %d\n"
+    		          "%s\n", lNumTokens - 1, pcUsageStr);
     }
 
     uint8_t ucCol = atoi(pcCol);
@@ -85,7 +85,7 @@ CMD_HANDLER_FUNC(gameHandler)
     }
     else
     {
-    	printf("Error! %s is not a game type.\n%s\n", pcGameType, pcUsageStr);
+        u0_dbg_printf("Error! %s is not a game type.\n%s\n", pcGameType, pcUsageStr);
     }
 
     xGameQueueRX = scheduler_task::getSharedObject(shared_GameQueueRX);
@@ -197,7 +197,7 @@ CMD_HANDLER_FUNC(pixyHandler)
 
         output.printf("Inserting %s chip into column %d\n", colorStr,
                       lTempColumn);
-        xQueueHandle = scheduler_task::getSharedObject(shared_PixyQueue);
+        xQueueHandle = scheduler_task::getSharedObject(shared_PixyQueueTX);
         xQueueSend(xQueueHandle, &xPixyCmd, portMAX_DELAY);
         return true;
     }

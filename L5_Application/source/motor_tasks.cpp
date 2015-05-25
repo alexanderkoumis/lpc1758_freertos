@@ -2,6 +2,7 @@
 #include "printf_lib.h"
 #include "utilities.h"
 #include "shared_handles.h" // shared_MotorQueue
+#include "pixy/common.hpp"
 #include <stdio.h>
 
 namespace team9
@@ -46,6 +47,7 @@ void MotorTask_t::vInitPWM()
 
 bool MotorTask_t::run(void *p)
 {
+    F();
     xMotorCommand_t xMotorCommandRX;
     bool xMotorCommandTX = true;
     if (xQueueReceive(getSharedObject(shared_MotorQueueRX),

@@ -132,7 +132,7 @@ class MotorTask_t : public scheduler_task
         const int lPclkDivider = 8;
         const int lStepsPerRot = 400;
         unsigned int ulSysClk;
-        float xMotorFreq = 0.5;
+        float xMotorFreq = 0.65;
 };
 
 namespace pixy
@@ -145,8 +145,10 @@ class PixyTask_t : public scheduler_task
 				scheduler_task("pixy", 2048, ucPriority),
 				pPixy(new Pixy_t(CHIPS_AT_A_TIME, CHIPS_TO_CALIB, GREEN))
 		{
-            QueueHandle_t xQueueHandle = xQueueCreate(1, sizeof(PixyCmd_t));
-            addSharedObject(shared_PixyQueue, xQueueHandle);
+            QueueHandle_t xQueueTXHandle = xQueueCreate(1, sizeof(int));
+            QueueHandle_t xQueueRXHandle = xQueueCreate(1, sizeof(PixyCmd_t));
+            addSharedObject(shared_PixyQueueTX, xQueueTXHandle);
+            addSharedObject(shared_PixyQueueRX, xQueueRXHandle);
             ssp1_set_max_clock(1);
 			delay_ms(128);
 			while(LPC_SSP1->SR & (1 << 4));
@@ -157,7 +159,8 @@ class PixyTask_t : public scheduler_task
         {
             Switches& xSwitches = SW.getInstance();
             bool bSwInit = xSwitches.init();
-            return bSwInit;
+//            return bSwInit;
+            return true;
         }
 
         bool run(void *p)
