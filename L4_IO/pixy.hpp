@@ -155,16 +155,11 @@ class Pixy_t
             xFuncMap->vSetHandler(WAITING_FOR_BOT, [&] ()
             {
                 PixyCmd_t xBotInsertCmd;
-                printf("Whats up did u send me shit bitch\n");
-                u0_dbg_printf("Whats up did u send me shit bitch\n");
 
                 if (xQueueReceive(
                         scheduler_task::getSharedObject(shared_PixyQueueRX),
                         &xBotInsertCmd, portMAX_DELAY))
                 {
-                    printf("Fuck your bitch ass\n");
-                    u0_dbg_printf("Fuck your bitch ass\n");
-
                     std::cout << "command column: " << xBotInsertCmd.lColumn << "\n"
                               << "command color: " << xBotInsertCmd.lColor << std::endl;
                     ChipColor_t xChipColor = (ChipColor_t)xBotInsertCmd.lColor;
@@ -193,14 +188,7 @@ class Pixy_t
 
             xFuncMap->vSetHandler(NOTIFY_BOT_OF_HUMAN_ACTIVIY, [&] ()
             {
-                printf("this what the fuck im sending: %d\n", lLastHumanCol);
-                u0_dbg_printf("this what the fuck im sending: %d\n", lLastHumanCol);
-
                 pPixyMouth->xEmitUpdate(lLastHumanCol);
-
-                printf("Alright we cool??\n");
-                u0_dbg_printf("Alright we cool??\n");
-
                 lLastHumanCol = -1;
                 eState = WAITING_FOR_BOT;
             });

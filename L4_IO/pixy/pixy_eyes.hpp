@@ -167,8 +167,8 @@ public:
         else
         {
             u0_dbg_printf("usChecksum error!\t"
-                    "Checksum %d\tBlocksum: %d\n",
-                    usChecksum, usBlockSum);
+                          "Checksum %d\tBlocksum: %d\n",
+                          usChecksum, usBlockSum);
         }
         eState = (ulChipCount == ulChipsAtATime) ? DONE : READ_NEXT;
     }
