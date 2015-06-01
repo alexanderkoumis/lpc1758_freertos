@@ -39,6 +39,7 @@ class GameSocket(threading.Thread):
                 item = self.bt_sock.recv(128)
                 if item is not None:
                     data += item
+                    print item
                 if re.search(self.robot_re, data):
                     match = re.search(self.robot_re, data)
                     data = ''
@@ -73,11 +74,11 @@ class GameSocket(threading.Thread):
 
     def _send_data(self, column):
         send_data = 'gameplay debug {}'.format(column)
-        print send_data
         unsent = True
         while unsent:
             try:
                 self.bt_sock.sendall(send_data + '\r\n')
+                print send_data
                 unsent = False
             except bluetooth.btcommon.BluetoothError as error:
                 time.sleep(0.125)
@@ -85,8 +86,9 @@ class GameSocket(threading.Thread):
                 time.sleep(0.125)
 
     def get_move(self):
-        print 'waiting to get move'
+        print 'block receive'
         move = self.g_qt.get(block=True)
         print 'Move:', move
         self.g_qt.task_done()
+        return int(move)
 

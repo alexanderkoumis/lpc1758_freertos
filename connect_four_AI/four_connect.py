@@ -1,3 +1,4 @@
+4
 """ A python module to play a variant of the popular Connect Four game.
 
 - Matthew Carlis
@@ -282,7 +283,7 @@ def heuristic_generic(the_board, symbol, row_index, column_index, dir_vectors, t
             else:
                 is_blocked[inner_cnt] = True
         if is_blocked[0] and is_blocked[1]:
-            if not terminal_test:
+            if not terminal_test and heuristics[cnt] < 5: # We win if it's 5 i.e 4
                 heuristics[cnt] = 1 # Account for subtraction on return.
     return max(heuristics) - 1
 
@@ -468,16 +469,17 @@ class ConnectFour(object):
             self.player_map = {player_1: human_player, player_2: computer_player}
             self.move_map = {player_1:'Your Move', player_2:'My Move'}
             self.print_map()
-            start_slot = self.player_map[player_1](None, 1, 1) # Key out the function.
+            #start_slot = self.player_map[player_1](None, 1, 1) # Key out the function.
         else: # Else it's the computer first.
             # Dictionaries contain function pointers
             self.messages = {player_1: computer_victory_message, player_2: human_victory_message}
             self.player_map = {player_1: computer_player, player_2: human_player}
             self.move_map = {player_1:'My Move', player_2:'Your Move'}
             start_slot = 3 # The middle is the best possible opening move.
-        self.insert(start_slot, player_1)
-        # Append the first move for player_1
-        self.previous_move[player_1].append(start_slot)
+        if self.move_map[1] == 'My Move':
+            self.insert(start_slot, player_1)
+            # Append the first move for player_1
+            self.previous_move[player_1].append(start_slot)
         self.print_map()
         #self.state_machine()
 
@@ -504,7 +506,7 @@ class ConnectFour(object):
         and the algorithm.
         """
         board_state = self.root_state.node_board.the_board
-        self.turn = self.opposite_turn[self.turn]
+        #self.turn = self.opposite_turn[self.turn]
         while(True):
             # Stop Condition for the game or go to next state.
             if self._next_turn_event():
@@ -521,8 +523,15 @@ class ConnectFour(object):
         # get_opponents_move() == self.player_map()
         valid = False
         while(not valid):
-            column_move = self.player_map[self.turn](self.root_state, self.turn, self.turn) # Key out the function.
+            if 'My Move' in self.move_map[self.turn]:
+                print 'robot'
+                column_move = self.player_map[self.turn](self.root_state, self.turn, self.turn) # Key out the function.
+                self.konnector_brain._send_data(6 - column_move)
+                #self.konnector_brain._send_data(8-(column_move))
+            else:
+                column_move = 6 - self.konnector_brain.get_move()
             end_game, valid = self.insert(column_move, self.turn) # Insert checks the move's heuristic.
+
         # append this players/turn's move into the ordered list.
         self.previous_move[self.turn].append(column_move)
         self.print_map()
@@ -531,9 +540,6 @@ class ConnectFour(object):
         #end_game = self.root_state.node_board.get_best_heuristic(self.turn)
         if end_game >= 4: # A Winner!!
             return True # Stop the state machine!
-        if 'My Move' in self.move_map[self.turn]:
-            self.konnector_brain._send_data(8-(column_move+1))
-            self.konnector_brain.get_move()
         self.turn = self.opposite_turn[self.turn]
         return False # Keep going!
 
