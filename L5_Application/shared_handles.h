@@ -34,6 +34,7 @@
 
 struct PixyCmd_t
 {
+    bool bReset;
     int lColumn;
     int lColor;
 };

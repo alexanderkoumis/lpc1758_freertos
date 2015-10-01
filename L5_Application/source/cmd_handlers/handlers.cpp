@@ -83,6 +83,10 @@ CMD_HANDLER_FUNC(gameHandler)
     {
     	xGameCommand.Load(eGame_t::COMPETE, ucCol);
     }
+    else if (strcmp(pcGameType, "reset") == 0)
+    {
+        xGameCommand.Load(eGame_t::RESET, ucCol);
+    }
     else
     {
         u0_dbg_printf("Error! %s is not a game type.\n%s\n", pcGameType, pcUsageStr);

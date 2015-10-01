@@ -34,7 +34,7 @@ class Board_t
         {
             for (auto& xChip : xAllChips)
             {
-                xChip.vReset();
+                xChip.vReset(); // Doesn't erase positions
             }
             for (auto& xWatchedChip : xWatchedChips)
             {
@@ -69,7 +69,7 @@ class Board_t
             return true;
         }
 
-        int vBuildGrid (Corners_t& xCorners_arg)
+        int vBuildGrid (const Corners_t& xCorners_arg)
         {
             std::vector<Point_t<float>> xTLBLPoints;
             std::vector<Point_t<float>> xTRBRPoints;
@@ -117,10 +117,8 @@ class Board_t
         void vPayAttentionTo(int lCol0, int lCol1, int lCol2, int lCol3,
                              int lCol4, int lCol5, int lCol6)
         {
-            if (!xWatchedChips.empty())
-            {
-                std::fill(xWatchedChips.begin(), xWatchedChips.end(), Chip_t());
-            }
+
+            std::fill(xWatchedChips.begin(), xWatchedChips.end(), Chip_t());
             xWatchedCols.clear();
             xWatchedCols.push_back(lCol0);
             xWatchedCols.push_back(lCol1);
@@ -298,8 +296,7 @@ class Board_t
             // For every entry in size 7 vector of "watched col heights"
             // (ex: [-1 0 0 0 0 0 -1])
             int lCols = xWatchedCols.size();
-            printf("Now watching: ");
-            u0_dbg_printf("Now watching: ");
+            printf("Now watching (lCols: %d): ", lCols);
 
             for (int lCol = 0; lCol < lCols; ++lCol)
             {
@@ -308,7 +305,7 @@ class Board_t
                 int lRow = xWatchedCols[lCol];
 
                 printf(" %d", lRow);
-                u0_dbg_printf(" %d", lRow);
+
                 if (!bInBounds<ROW>(lRow)) continue;
 
                 // Dereference chip in current column (xWatchedChips same
@@ -325,7 +322,7 @@ class Board_t
                 }
             }
             printf("\n");
-            u0_dbg_printf("\n");
+
             return -1;
         }
 
@@ -457,28 +454,27 @@ class Board_t
             std::ostringstream xOss;
             int lIdx1 = 0;
             int lIdx2 = 0;
-            xOss << "Col:   0 1 2 3 4 5 6            0 1 2 3 4 5 6";
-            xOss << "\n";
+            xOss << "Col:   0 1 2 3 4 5 6            0 1 2 3 4 5 6\n";
             for (int xI = (int)ulRows - 1; xI >= 0; --xI)
             {
-                if (!xSeenChips.empty())
+               if (!xSeenChips.empty())
+               {
+                xOss << "Row " << xI << ":";
+                //// Print incoming chip colors
+                for (int xJ = 0; xJ < (int)ulCols; ++xJ)
                 {
-                    xOss << "Row " << xI << ":";
-                    //// Print incoming chip colors
-                    for (int xJ = 0; xJ < (int)ulCols; ++xJ)
-                    {
-                        ChipColor_t xChipColor = NONE;
-                        for (auto& xChipColorPair : xSeenChips)
-                        {
-                            if (xChipColorPair.first == lIdx1)
-                            {
-                                xChipColor = xChipColorPair.second;
-                            }
-                        }
-                        lIdx1++;
-                        xOss << " " << xStringMap[xChipColor];
-                    }
-                    xOss << "     ";
+                   ChipColor_t xChipColor = NONE;
+                   for (auto& xChipColorPair : xSeenChips)
+                   {
+                       if (xChipColorPair.first == lIdx1)
+                       {
+                           xChipColor = xChipColorPair.second;
+                       }
+                   }
+                   lIdx1++;
+                   xOss << " " << xStringMap[xChipColor];
+                }
+                xOss << "     ";
                 }
                 Chip_t& xChipRowICol0 = xAllChips[lIdx2++];
                 Chip_t& xChipRowICol1 = xAllChips[lIdx2++];

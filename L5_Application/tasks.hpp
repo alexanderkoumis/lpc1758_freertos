@@ -69,7 +69,7 @@ class terminalTask : public scheduler_task
 namespace team9
 {
 
-enum eGame_t {DEBUG, COMPETE};
+enum eGame_t {DEBUG, COMPETE, RESET};
 enum eDirection_t {LEFT, RIGHT};
 
 struct xMotorCommand_t
@@ -132,7 +132,7 @@ class MotorTask_t : public scheduler_task
         const int lPclkDivider = 8;
         const int lStepsPerRot = 400;
         unsigned int ulSysClk;
-        float xMotorFreq = 0.65;
+        float xMotorFreq = 1.0;
 };
 
 namespace pixy

@@ -19,7 +19,6 @@ struct Point_t
         std::tie(xY, xX) = std::tie(xY_arg, xX_arg);
     }
 
-
     template<typename T1>
     operator Point_t<T1> ()
     {

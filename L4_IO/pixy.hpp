@@ -1,11 +1,13 @@
 #ifndef PIXY_HPP
 #define PIXY_HPP
 
+#include <cstdio>
 #include <iostream>
 #include <map>
 #include <functional>
 
 #include "shared_handles.h"
+#include "storage.hpp"
 
 #include "pixy/config.hpp"
 #include "pixy/common.hpp"
@@ -32,29 +34,36 @@ class Pixy_t
         enum State_t
         {
             RESET=0x01,             // SW(1)
-            EMA_ALPHA_UP=0x02,      // SW(2)
-            EMA_ALPHA_DOWN=0x04,    // SW(3)
-            START=0x08,             // SW(4)
-            CALIB=16,
+            CALIB=0x02,             // SW(2)
+            START=0x04,             // SW(3)
+            EMA_ALPHA_UP=0x08,      // SW(4)
+            EMA_ALPHA_DOWN=0x09,    // SW(4&1)
             WAITING_FOR_HUMAN=17,
             WAITING_FOR_BOT=18,
             NOTIFY_BOT_OF_HUMAN_ACTIVIY=19,
-            WAITING_FOR_START=20,
-            ERROR=21
+            WAITING_FOR_RESET=20,
+            ERROR=22
         } eState, eLastState;
 
-        bool bStarted;
+        bool bReset;
+        bool bCalib;
         int lLastHumanCol;
 
-        Pixy_t () : bStarted(false), lLastHumanCol(-1), eState(CALIB), eLastState(CALIB)
+        Pixy_t () :
+                bReset(false),
+                bCalib(false),
+                lLastHumanCol(-1),
+                eState(WAITING_FOR_RESET),
+                eLastState(WAITING_FOR_RESET)
         {}
 
         Pixy_t (uint32_t ulChipsAtATime, uint32_t ulChipsToCalib,
                 ChipColor_t eColorCalib) :
-                bStarted(false),
+                bReset(false),
+                bCalib(false),
                 lLastHumanCol(-1),
-                eState(CALIB),
-                eLastState(CALIB),
+                eState(WAITING_FOR_RESET),
+                eLastState(WAITING_FOR_RESET),
                 pPixyBrain(new pixy::PixyBrain_t(eColorCalib, ulChipsToCalib)),
                 pPixyEyes(new pixy::PixyEyes_t(ulChipsAtATime)),
                 pPixyMouth(new pixy::PixyMouth_t),
@@ -66,80 +75,99 @@ class Pixy_t
 
         void vAction(uint8_t xButton)
         {
-            eLastState = eState;
-            u0_dbg_printf("State: %s\n", xStringMap[eState].c_str());
-            if (eLastState != eState)
-            {
-                u0_dbg_printf("CHANGE STATE\n");
-            }
             if (xButton)
             {
                 eState = (State_t)xButton;
             }
+            printf("State: %s\n", xStringMap[eState].c_str());
+            if (eLastState != eState)
+            {
+                printf("State change [%s -> %s]\n", xStringMap[eLastState].c_str(), xStringMap[eState].c_str());
+            }
+            eLastState = eState;
             xFuncMap->vResponse(eState)();
         }
 
     private:
         void vInitMapFunc()
         {
+
+            xFuncMap->vSetHandler(CALIB, [&] ()
+            {
+                printf("Set calibration flag\n");
+                bCalib = true;
+                eState = WAITING_FOR_RESET;
+            });
+
             xFuncMap->vSetHandler(RESET, [&] ()
             {
-                pPixyEyes->vReset();
+                printf("Resetting\n");
                 pPixyBrain->vReset();
-                eState = WAITING_FOR_START;
+                bReset = true;
+                eState = WAITING_FOR_RESET;
+            });
+
+            xFuncMap->vSetHandler(START, [&] ()
+            {
+                printf("Starting\n");
+                eState = WAITING_FOR_HUMAN;
             });
 
             xFuncMap->vSetHandler(EMA_ALPHA_UP, [&] ()
             {
                 pPixyBrain->vEMAAlphaUp();
-                std::cout << "Alpha: " << pPixyBrain->xGetAlpha() << std::endl;
+                printf("Alpha: %f\n", pPixyBrain->xGetAlpha());
                 eState = eLastState;
             });
 
             xFuncMap->vSetHandler(EMA_ALPHA_DOWN, [&] ()
             {
                 pPixyBrain->vEMAAlphaDown();
-                std::cout << "Alpha: " << pPixyBrain->xGetAlpha() << std::endl;
+                printf("Alpha: %f\n", pPixyBrain->xGetAlpha());
                 eState = eLastState;
             });
 
-            xFuncMap->vSetHandler(WAITING_FOR_START, [&] ()
+            xFuncMap->vSetHandler(WAITING_FOR_RESET, [&] ()
             {
-                if (bStarted)
+                if (bReset)
                 {
-                    eState = WAITING_FOR_HUMAN;
-                    return;
+                    bReset = false;
+                    Corners_t xCorners;
+                    if (bCalib)
+                    {
+                        printf("Corner calib from camera\n");
+                        bCalib = false;
+                        pPixyBrain->vCalibCorners(pPixyEyes.get(), xCorners);
+                        char* corner_str = Corners_t::pcCornerStrRaw(xCorners);
+                        Storage::write("/corners.calib", corner_str, 256, 0);
+                        pPixyBrain->vSetCorners(xCorners);
+                        eState = WAITING_FOR_RESET;
+                    }
+                    else if (Corners_t::bReadCorners("/corners.calib", xCorners))
+                    {
+                        printf("Problem loading corner calib, getting from camera\n");
+                        pPixyBrain->vCalibCorners(pPixyEyes.get(), xCorners);
+                        pPixyBrain->vSetCorners(xCorners);
+                        eState = WAITING_FOR_RESET;
+                    }
+                    else
+                    {
+                        printf("Loaded corner calib from camera");
+                        pPixyBrain->vSetCorners(xCorners);
+
+                        eState = WAITING_FOR_HUMAN;
+                    }
                 }
                 else
                 {
-                    eState = WAITING_FOR_START;
+                    eState = WAITING_FOR_RESET;
                 }
-            });
-
-            xFuncMap->vSetHandler(CALIB, [&] ()
-            {
-                if (pPixyBrain->vCalibBoard(pPixyEyes.get()))
-                {
-                    pPixyBrain->vPrintCorners(Board_t::LOCATION);
-                    eState = WAITING_FOR_START;
-                }
-                else
-                {
-                    eState = ERROR;
-                }
-            });
-
-            xFuncMap->vSetHandler(START, [&] ()
-            {
-                bStarted = true;
-                eState = WAITING_FOR_START;
             });
 
             xFuncMap->vSetHandler(WAITING_FOR_HUMAN, [&] ()
             {
                 lLastHumanCol = pPixyBrain->lSampleChips(pPixyEyes.get());
                 printf("Last Human Col: %d\n", lLastHumanCol);
-                u0_dbg_printf("Last Human Col: %d\n", lLastHumanCol);
                 if (lLastHumanCol >= 0)
                 {
                     pPixyBrain->vPrintChips(Board_t::COLOR, true);
@@ -160,8 +188,14 @@ class Pixy_t
                         scheduler_task::getSharedObject(shared_PixyQueueRX),
                         &xBotInsertCmd, portMAX_DELAY))
                 {
-                    std::cout << "command column: " << xBotInsertCmd.lColumn << "\n"
-                              << "command color: " << xBotInsertCmd.lColor << std::endl;
+                    std::cout << "Bot column: " << xBotInsertCmd.lColumn << "\n"
+                              << "Bot color: " << xBotInsertCmd.lColor << std::endl;
+                    if (xBotInsertCmd.bReset)
+                    {
+                        printf("Reset command\n");
+                        eState = RESET;
+                        return;
+                    }
                     ChipColor_t xChipColor = (ChipColor_t)xBotInsertCmd.lColor;
                     int lColumn = xBotInsertCmd.lColumn;
                     int lNewRow = pPixyBrain->lBotInsert(xBotInsertCmd);
@@ -211,7 +245,7 @@ class Pixy_t
             xStringMap[EMA_ALPHA_UP] = std::string("EMA_ALPHA_UP");
             xStringMap[EMA_ALPHA_DOWN] = std::string("EMA_ALPHA_UP");
             xStringMap[START] = std::string("START");
-            xStringMap[WAITING_FOR_START] = std::string("WAITING_FOR_START");
+            xStringMap[WAITING_FOR_RESET] = std::string("WAITING_FOR_RESET");
         }
 
         std::unique_ptr<pixy::PixyBrain_t> pPixyBrain;

@@ -7,11 +7,15 @@
 #include <algorithm>
 #include <stack>
 
+#include "storage.hpp"
+
 #include "pixy.hpp"
 #include "pixy/pixy_eyes.hpp"
 #include "pixy/common.hpp"
 #include "pixy/common/board.hpp"
 #include "pixy/common/block.hpp"
+
+#define FUCK() printf("%d %s\n", __LINE__, __func__)
 
 namespace team9
 {
@@ -51,17 +55,14 @@ class PixyBrain_t
             return pBoard->xGetAlpha();
         }
 
-        bool vCalibBoard(PixyEyes_t* pPixyEyes)
+        void vCalibCorners(PixyEyes_t* pPixyEyes, Corners_t& xCorners)
         {
             uint32_t ulChips = 0;
             uint32_t ulCalibChips = 0;
-            Corners_t xCorners;
             while (ulChips < ulChipsToCalib)
             {
                 std::vector<Block_t> xBlocks;
-                u0_dbg_printf("BLOCKS\n");
                 ulChips += pPixyEyes->ulSeenBlocks(xBlocks);
-                u0_dbg_printf("BLOCKS\n");
                 for (auto& xBlock : xBlocks)
                 {
                     if (xBlock.usSignature == eColorCalib)
@@ -75,46 +76,29 @@ class PixyBrain_t
                     }
                 }
             }
+        }
 
-            switch(pBoard->vBuildGrid(xCorners))
-            {
-                case 0:
-                {
-                    pBoard->xCorners = xCorners;
-                    pBoard->vPayAttentionTo(0, 0, 0, 0, 0, 0, 0);
-                    return true;
-                }
-                case 1:
-                {
-                    xErrorQueue.push("TLBL or TRBR lines had invalid # of pts");
-                    break;
-                }
-                case 2:
-                {
-                    std::ostringstream xOss;
-                    xOss << "Invalid # of chips after instantiation. "
-                         << "Expected: " << pBoard->ulExpectedTotalChips()
-                         << ", Actual: " << pBoard->ulActualTotalChips();
-                    xErrorQueue.push(xOss.str());
-                    break;
-                }
-            }
-            xErrorQueue.push("Problem building grid");
-            return false;
+        void vSetCorners(const Corners_t& xCorners)
+        {
+            pBoard->xCorners = xCorners;
+            pBoard->vBuildGrid(xCorners);
+            printf("Corners:\n");
+            Corners_t::vPrint(xCorners);
+            printf("Board\n");
+            // pBoard->vOpenCVPrint();
         }
 
         int lSampleChips(PixyEyes_t* pPixyEyes)
         {
-            std::vector<Block_t> xBlocks;
-            std::vector<std::pair<int, ChipColor_t>> xSeenChips;
-            pPixyEyes->ulSeenBlocks(xBlocks);
-            this->pBoard->vCalcSeenChips(xBlocks, xSeenChips);
-            this->xLastSeen = xSeenChips;
-            this->pBoard->vUpdate(xSeenChips);
-            int lLastChipInserted = this->pBoard->lColChanged();
-            return lLastChipInserted;
-//            this->lLastInsertCol = lLastChipInserted;
-//            return lLastChipInserted;
+
+            FUCK();std::vector<Block_t> xBlocks;
+            FUCK();std::vector<std::pair<int, ChipColor_t>> xSeenChips;
+            FUCK();pPixyEyes->ulSeenBlocks(xBlocks);
+            FUCK();this->pBoard->vCalcSeenChips(xBlocks, xSeenChips);
+            FUCK();this->xLastSeen = xSeenChips;
+            FUCK();this->pBoard->vUpdate(xSeenChips);
+            FUCK();int lLastChipInserted = this->pBoard->lColChanged();
+            FUCK();return lLastChipInserted;
         }
 
         int lBotInsert(PixyCmd_t& xInsertCmd)
@@ -129,27 +113,6 @@ class PixyBrain_t
                 xErrorQueue.push("Column value out of bounds");
             }
             return lNewRow;
-        }
-
-        int lGetUpdate()
-        {
-            int lReturnVal = lLastInsertCol + 1;
-            return lReturnVal;
-//            if (xUpdateQueue.empty())
-//            {
-//                xErrorQueue.push("I have no updates for you! "
-//                                 "What do you want??");
-//                return -1;
-//            }
-//            int lLastInserted = xUpdateQueue.front();
-//            xUpdateQueue.pop();
-//            while (!xUpdateQueue.empty())
-//            {
-//                xErrorQueue.push("This should not be here: " +
-//                                 xUpdateQueue.front());
-//                xUpdateQueue.pop();
-//            }
-//            return lLastInserted;
         }
 
         void vPrintChips(Board_t::PrintMode_t xPrintMode,
@@ -186,6 +149,8 @@ class PixyBrain_t
             return oss.str();
         }
 
+        std::unique_ptr<Board_t> pBoard;
+
     private:
         inline Quadrant_t xComputeQuadrant(Point_t<uint16_t>& xPoint)
         {
@@ -215,8 +180,6 @@ class PixyBrain_t
             xErrorQueue.push("Point was not in any quadrant or out of bounds?");
             return ERROR;
         }
-
-        std::unique_ptr<Board_t> pBoard;
 
         std::queue<std::string> xErrorQueue;
         std::queue<int> xUpdateQueue;
