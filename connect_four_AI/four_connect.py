@@ -530,6 +530,9 @@ class ConnectFour(object):
                 #self.konnector_brain._send_data(8-(column_move))
             else:
                 column_move = 6 - self.konnector_brain.get_move()
+                if column_move is None:
+                    # We didn't get a move so end.
+                    return True
             end_game, valid = self.insert(column_move, self.turn) # Insert checks the move's heuristic.
 
         # append this players/turn's move into the ordered list.
