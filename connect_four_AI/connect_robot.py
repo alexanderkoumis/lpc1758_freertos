@@ -6,28 +6,57 @@ Connect Earthquake assignment implementing a Hill Climbing algorithm.
 """
 import sys
 
+import threading
+import time
 from four_connect import ConnectFour
 
 CRAP_OUT = '\nERROR with human input.'
 CRAP_OUT += '\nYou entered something wrong.  Stop being a Type Noob.'
 
-def run_simulation(player_first=False, indicate_quake=False):
+
+GAME_OBJ = None
+
+def spawn_thread(player_first=False, indicate_quake=False):
+    """
+    """
+    global GAME_OBJ
+    if GAME_OBJ is None:
+        GAME_OBJ = ConnectFour(player_first, indicate_quake)
+    th = threading.Thread(target=run_simulation)
+    th.start()
+    usr_in = ''
     try:
-        game_obj = ConnectFour(player_first, indicate_quake)
-        game_obj.state_machine()
-        game_obj.konnector_brain.alive.clear()
+        while GAME_OBJ.konnector_brain.alive.isSet():
+            usr_in = raw_input("Reset: r/R?")
+            if usr_in in ('R', 'r', 'reset', 'Reset'):
+                GAME_OBJ.konnector_brain.alive.clear()
+                th.join()
+                GAME_OBJ = ConnectFour(player_first, indicate_quake)
+                th = threading.Thread(target=run_simulation)
+                th.start()
+                usr_in = ''
     except ValueError:
         print CRAP_OUT
+        GAME_OBJ.konnector_brain.alive.clear()
         sys.exit(1)
     except KeyboardInterrupt:
         print '\n\n          I win by your submission human!'
         print 'Maybe you need larger heat sinks to handle this heat\n'
-        game_obj.konnector_brain.alive.clear()
+        GAME_OBJ.konnector_brain.alive.clear()
         sys.exit(1)
     except Exception, excep:
         print 'Something Failed:', excep
-        game_obj.konnector_brain.alive.clear()
+        GAME_OBJ.konnector_brain.alive.clear()
         sys.exit(1)
+
+def run_simulation():
+    """
+    """
+    if GAME_OBJ is None:
+        return
+    GAME_OBJ.state_machine()
+    GAME_OBJ.konnector_brain.alive.clear()
+    return
 
 
 def parse_arguments(arguments):
@@ -49,5 +78,5 @@ if __name__ == '__main__':
     import copy
     ARGS = copy.deepcopy(sys.argv)
     PLAYER, QUAKE = parse_arguments(ARGS)
-    run_simulation(PLAYER, QUAKE)
+    spawn_thread(PLAYER, QUAKE)
 

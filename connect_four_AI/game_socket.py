@@ -60,13 +60,14 @@ class GameSocket(threading.Thread):
         #self.g_qt.join()
 
     def connect(self):
-        while(True):
+        disconnected = True
+        while(disconnected):
             try:
                 self.bt_sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
                 self.bt_sock.connect((bt_mac, bt_port))
                 self.bt_sock.setblocking(True)
                 self.bt_sock.settimeout(0.5)
-                break;
+                disconnected = False
             except bluetooth.btcommon.BluetoothError as error:
                 self._teardown()
                 print "Could not connect: ", error, "; Retrying in 3s..."
@@ -78,7 +79,7 @@ class GameSocket(threading.Thread):
         while unsent:
             try:
                 self.bt_sock.sendall(send_data + '\r\n')
-                print send_data
+                # print send_data
                 unsent = False
             except bluetooth.btcommon.BluetoothError as error:
                 time.sleep(0.125)
@@ -86,9 +87,18 @@ class GameSocket(threading.Thread):
                 time.sleep(0.125)
 
     def get_move(self):
-        print 'block receive'
-        move = self.g_qt.get(block=True)
-        print 'Move:', move
-        self.g_qt.task_done()
-        return int(move)
+        # print 'block receive'
+        move = None
+        while self.alive.isSet() and move is None:
+            try:
+                # Loop on a Timeout to ensure graceful program exits.
+                move = self.g_qt.get(block=True, timeout=0.25)
+                move = int(move)
+                self.g_qt.task_done()
+                # print 'Move:', move
+            except Queue.Empty:
+                # We just timed out. Spin back around.
+                move = None
+                continue
+        return move
 
