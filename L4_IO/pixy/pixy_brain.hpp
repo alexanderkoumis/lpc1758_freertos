@@ -1,10 +1,11 @@
 #ifndef PIXY_BRAIN_HPP
 #define PIXY_BRAIN_HPP
 
-#include <vector>
-#include <iostream>
-#include <queue>
 #include <algorithm>
+#include <iostream>
+#include <memory>
+#include <queue>
+#include <vector>
 #include <stack>
 
 #include "storage.hpp"
@@ -15,7 +16,7 @@
 #include "pixy/common/board.hpp"
 #include "pixy/common/block.hpp"
 
-#define FUCK() printf("%d %s\n", __LINE__, __func__)
+#define FUCK() printf("%d %s\n", __LINE__, __func__); u0_dbg_printf("%d %s\n", __LINE__, __func__)
 
 namespace team9
 {
@@ -26,19 +27,19 @@ class PixyBrain_t
 {
     public:
         PixyBrain_t(ChipColor_t eColorCalib_arg, uint32_t ulChipsToCalib_arg) :
-                pBoard(new Board_t),
-                lLastInsertCol(0),
+//                pBoard(new Board_t),
                 eColorCalib(eColorCalib_arg),
+                lLastInsertCol(0),
                 ulChipsToCalib(ulChipsToCalib_arg),
                 usCamRows(200), usCamCols(320),
                 usCamRowsHalf(usCamRows/2),
                 usCamColsHalf(usCamCols/2)
         {}
-
-        void vReset()
-        {
-            pBoard->vReset();
-        }
+//
+//        void vReset()
+//        {
+//            pBoard->vReset();
+//        }
 
         void vEMAAlphaUp()
         {
@@ -62,7 +63,12 @@ class PixyBrain_t
             while (ulChips < ulChipsToCalib)
             {
                 std::vector<Block_t> xBlocks;
-                ulChips += pPixyEyes->ulSeenBlocks(xBlocks);
+                int lSeenBlocks = pPixyEyes->lSeenBlocks(xBlocks);
+                if (lSeenBlocks < 0)
+                {
+                    continue;
+                }
+                ulChips += lSeenBlocks;
                 for (auto& xBlock : xBlocks)
                 {
                     if (xBlock.usSignature == eColorCalib)
@@ -78,27 +84,19 @@ class PixyBrain_t
             }
         }
 
-        void vSetCorners(const Corners_t& xCorners)
-        {
-            pBoard->xCorners = xCorners;
-            pBoard->vBuildGrid(xCorners);
-            printf("Corners:\n");
-            Corners_t::vPrint(xCorners);
-            printf("Board\n");
-            // pBoard->vOpenCVPrint();
-        }
-
         int lSampleChips(PixyEyes_t* pPixyEyes)
         {
-
-            FUCK();std::vector<Block_t> xBlocks;
-            FUCK();std::vector<std::pair<int, ChipColor_t>> xSeenChips;
-            FUCK();pPixyEyes->ulSeenBlocks(xBlocks);
-            FUCK();this->pBoard->vCalcSeenChips(xBlocks, xSeenChips);
-            FUCK();this->xLastSeen = xSeenChips;
-            FUCK();this->pBoard->vUpdate(xSeenChips);
-            FUCK();int lLastChipInserted = this->pBoard->lColChanged();
-            FUCK();return lLastChipInserted;
+            std::vector<Block_t> xBlocks;
+            std::vector<std::pair<int, ChipColor_t>> xSeenChips;
+            if (pPixyEyes->lSeenBlocks(xBlocks) < 0)
+            {
+                return -1;
+            }
+            this->pBoard->vCalcSeenChips(xBlocks, xSeenChips);
+            this->xLastSeen = xSeenChips;
+            this->pBoard->vUpdate(xSeenChips);
+            int lLastChipInserted = this->pBoard->lColChanged();
+            return lLastChipInserted;
         }
 
         int lBotInsert(PixyCmd_t& xInsertCmd)
@@ -150,6 +148,7 @@ class PixyBrain_t
         }
 
         std::unique_ptr<Board_t> pBoard;
+        ChipColor_t eColorCalib;
 
     private:
         inline Quadrant_t xComputeQuadrant(Point_t<uint16_t>& xPoint)
@@ -189,7 +188,6 @@ class PixyBrain_t
         Corners_t xLastCorners;
         int lLastInsertCol;
 
-        ChipColor_t eColorCalib;
         uint32_t ulChipsToCalib;
 
         uint16_t usCamRows;

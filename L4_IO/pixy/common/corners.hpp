@@ -78,13 +78,14 @@ class Corners_t
             return "";
         }
 
-        static int bReadCorners(const char* calib_file_path, Corners_t& xCorners)
+        static bool bReadCorners(const char* calib_file_path, Corners_t& xCorners)
         {
             char corner_str[256] = "";
             if (Storage::read("/corners.calib", corner_str, 256, 0) == FR_NO_FILE)
             {
                 printf("/corners.calib doesn't exist\n");
-                return 1;
+                u0_dbg_printf("/corners.calib doesn't exist\n");
+                return false;
             }
             float tl_y;
             float tl_x;
@@ -111,12 +112,12 @@ class Corners_t
                 xCorners.xStats[2 * BOT_LEFT + 1].vSetMean(bl_x);
                 xCorners.xStats[2 * BOT_RIGHT].vSetMean(br_y);
                 xCorners.xStats[2 * BOT_RIGHT + 1].vSetMean(br_x);
-                return 0;
+                return true;
             }
             printf("Error reading corners "
                    "(read %d floats instead of 8\n)",
                    corner_tokens);
-            return 1;
+            return false;
         }
 
         static void vPrint(const Corners_t& xCorners)
@@ -133,11 +134,21 @@ class Corners_t
                     xCorners.xStats[2 * BOT_LEFT + 1].xMean(),
                     xCorners.xStats[2 * BOT_RIGHT].xMean(),
                     xCorners.xStats[2 * BOT_RIGHT + 1].xMean());
+            u0_dbg_printf("[\n"
+                   "\t[%f %f] [%f %f]\n"
+                   "\t[%f %f] [%f %f]\n"
+                   "]\n",
+                    xCorners.xStats[2 * TOP_LEFT].xMean(),
+                    xCorners.xStats[2 * TOP_LEFT + 1].xMean(),
+                    xCorners.xStats[2 * TOP_RIGHT].xMean(),
+                    xCorners.xStats[2 * TOP_RIGHT + 1].xMean(),
+                    xCorners.xStats[2 * BOT_LEFT].xMean(),
+                    xCorners.xStats[2 * BOT_LEFT + 1].xMean(),
+                    xCorners.xStats[2 * BOT_RIGHT].xMean(),
+                    xCorners.xStats[2 * BOT_RIGHT + 1].xMean());
         }
 
     private:
-
-
         std::vector<StatEMA_t> xStats;
 };
 

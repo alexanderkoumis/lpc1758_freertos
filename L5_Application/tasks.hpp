@@ -165,7 +165,7 @@ class PixyTask_t : public scheduler_task
 
         bool run(void *p)
         {
-            pPixy->vAction(SW.getSwitchValues());
+            pPixy->vAction((Pixy_t::Button_t)SW.getSwitchValues());
             return true;
         }
 

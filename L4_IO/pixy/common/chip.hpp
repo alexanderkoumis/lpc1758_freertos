@@ -13,10 +13,11 @@ namespace pixy
 class Chip_t
 {
     public:
-        Chip_t() : Chip_t(CHIP_PROXIM_TOLERANCE) {}
-        Chip_t(float xPointEMA_alpha) :
-                xKnownChipColor(ChipColor_t::NONE),
-                xLastChipColor(ChipColor_t::NONE),
+        Chip_t() : Chip_t(CHIP_PROXIM_TOLERANCE, ChipColor_t::GREEN) {}
+        Chip_t(const float xPointEMA_alpha, const ChipColor_t eHumanChipColor_arg) :
+                eKnownChipColor(ChipColor_t::NONE),
+                eLastChipColor(ChipColor_t::NONE),
+                eHumanChipColor(eHumanChipColor_arg),
                 bNoneGreatest(false),
                 bGreenGreatest(false),
                 bRedGreatest(false),
@@ -36,24 +37,24 @@ class Chip_t
         void vSet(ChipColor_t xChipColor)
         {
             bEnabled = false;
-            xKnownChipColor = xChipColor;
+            eKnownChipColor = xChipColor;
         }
 
         ChipColor_t xMaxChip()
         {
-            return xKnownChipColor;
+            return eKnownChipColor;
         }
 
         float xMeanVal()
         {
-            return (xKnownChipColor == GREEN) ? xChipColorGreen.xMean() :
-                    ((xKnownChipColor == RED) ? xChipColorRed.xMean() : 0.0);
+            return (eKnownChipColor == GREEN) ? xChipColorGreen.xMean() :
+                    ((eKnownChipColor == RED) ? xChipColorRed.xMean() : 0.0);
         }
 
         float xStdDevVal()
         {
-            return (xKnownChipColor == GREEN) ? xChipColorGreen.xStdDev() :
-                    ((xKnownChipColor == RED) ? xChipColorRed.xStdDev() : 0.0);
+            return (eKnownChipColor == GREEN) ? xChipColorGreen.xStdDev() :
+                    ((eKnownChipColor == RED) ? xChipColorRed.xStdDev() : 0.0);
         }
 
         std::string xLocStr()
@@ -92,30 +93,31 @@ class Chip_t
                 bGreenGreatest = (xIsGreen > xIsNone) && (xIsGreen > xIsRed);
                 bRedGreatest = (xIsRed > xIsNone) && (xIsRed > xIsGreen);
 
-                ChipColor_t xTempChipColor = NONE;
-                if (bGreenGreatest) xTempChipColor = GREEN;
-                else if (bRedGreatest) xTempChipColor = RED;
+                ChipColor_t eTempChipColor = NONE;
+                if (bGreenGreatest) eTempChipColor = GREEN;
+                else if (bRedGreatest) eTempChipColor = RED;
 
-                if (xTempChipColor == NONE)
+                if (eTempChipColor == NONE)
                 {
                     lInARowCnt = 0;
                     return;
                 }
 
-                if (xLastChipColor == NONE)
+                if (eLastChipColor == NONE)
                 {
-                    xLastChipColor = xTempChipColor;
+                    eLastChipColor = eTempChipColor;
                     lInARowCnt++;
                     return;
                 }
 
                 // xTempChipColor is either red or blue,
                 // xLastChipColor is red or blue
-                if (xTempChipColor == xLastChipColor)
+                if (eTempChipColor == eLastChipColor)
                 {
-                    if (lInARowCnt++ == (int)lTimesRepeatedForMax)
+                    if ((lInARowCnt++ == (int)lTimesRepeatedForMax) &&
+                        (eTempChipColor == eHumanChipColor))
                     {
-                        xKnownChipColor = xLastChipColor;
+                        eKnownChipColor = eLastChipColor;
                         bEnabled = false;
                     }
                 }
@@ -137,8 +139,8 @@ class Chip_t
             xChipColorGreen.vReset();
             xChipColorRed.vReset();
 
-            xKnownChipColor = NONE;
-            xLastChipColor = NONE;
+            eKnownChipColor = NONE;
+            eLastChipColor = NONE;
 
             bNoneGreatest = true;
             bGreenGreatest = false;
@@ -167,8 +169,9 @@ class Chip_t
         StatEMA_t xChipColorGreen;
         StatEMA_t xChipColorRed;
 
-        ChipColor_t xKnownChipColor;
-        ChipColor_t xLastChipColor;
+        ChipColor_t eKnownChipColor;
+        ChipColor_t eLastChipColor;
+        ChipColor_t eHumanChipColor;
 
         bool bNoneGreatest;
         bool bGreenGreatest;

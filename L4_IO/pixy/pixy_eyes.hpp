@@ -7,6 +7,7 @@
 #include "utilities.h"
 #include "printf_lib.h"
 #include "scheduler_task.hpp"
+#include "soft_timer.hpp"
 
 #include "pixy/common.hpp"
 #include "pixy/common/block.hpp"
@@ -44,7 +45,7 @@ public:
         return usRecv |= ssp1_exchange_byte(0);
     }
 
-    uint32_t ulSeenBlocks(std::vector<Block_t>& vRecvBlocks)
+    int lSeenBlocks(std::vector<Block_t>& vRecvBlocks)
     {
         ulChipCount = 0;
         usChecksum = 0x0000;
@@ -53,8 +54,16 @@ public:
         vRecvBlocks.clear();
         vRecvBlocks.resize(ulChipsAtATime);
 
+        SoftTimer timer(5 * 1000);
+
         while (eState != DONE)
         {
+            if (timer.expired())
+            {
+                printf("ulSeenBlocks timeout\n");
+                u0_dbg_printf("ulSeenBlocks timeout\n");
+                return -1;
+            }
             switch (eState)
             {
                 case START:
@@ -79,6 +88,7 @@ public:
                 }
                 default:
                 {
+                    printf("Error: usGetBlocks default case\n");
                     u0_dbg_printf("Error: usGetBlocks default case\n");
                     break;
                 }
@@ -86,7 +96,7 @@ public:
         }
         vRecvBlocks.resize(ulChipCount);
         eState = START;
-        return ulChipCount;
+        return (int)ulChipCount;
     }
 
     __inline void vStateStart()
