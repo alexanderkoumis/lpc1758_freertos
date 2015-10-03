@@ -83,14 +83,7 @@ bool GameTask_t::run(void *p)
     if (xQueueReceive(getSharedObject(shared_GameQueueRX), &xGameCommand,
     				  portMAX_DELAY))
     {
-        if (xGameCommand.eGame == eGame_t::RESET)
-        {
-            xPixyCmd.bReset = true;
-        }
-        else
-        {
-            this->vRunStepper(xGameCommand.ucCol);
-        }
+        this->vRunStepper(xGameCommand.ucCol);
     }
 
     // Informing Pixy of robot's chip insertion

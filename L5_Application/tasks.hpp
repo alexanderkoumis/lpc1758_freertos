@@ -147,8 +147,12 @@ class PixyTask_t : public scheduler_task
 		{
             QueueHandle_t xQueueTXHandle = xQueueCreate(1, sizeof(int));
             QueueHandle_t xQueueRXHandle = xQueueCreate(1, sizeof(PixyCmd_t));
+            QueueHandle_t xQueueResetTXHandle = xQueueCreate(1, sizeof(bool));
+            QueueHandle_t xQueueResetRXHandle = xQueueCreate(1, sizeof(bool));
             addSharedObject(shared_PixyQueueTX, xQueueTXHandle);
             addSharedObject(shared_PixyQueueRX, xQueueRXHandle);
+            addSharedObject(shared_PixyResetQueueTX, xQueueResetTXHandle);
+            addSharedObject(shared_PixyResetQueueRX, xQueueResetRXHandle);
             ssp1_set_max_clock(1);
 			delay_ms(128);
 			while(LPC_SSP1->SR & (1 << 4));

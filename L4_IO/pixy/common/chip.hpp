@@ -97,7 +97,8 @@ class Chip_t
                 if (bGreenGreatest) eTempChipColor = GREEN;
                 else if (bRedGreatest) eTempChipColor = RED;
 
-                if (eTempChipColor == NONE)
+//                if (eTempChipColor == NONE)
+                if (eTempChipColor != eHumanChipColor)
                 {
                     lInARowCnt = 0;
                     return;
@@ -106,16 +107,13 @@ class Chip_t
                 if (eLastChipColor == NONE)
                 {
                     eLastChipColor = eTempChipColor;
-                    lInARowCnt++;
+                    lInARowCnt = 1;
                     return;
                 }
 
-                // xTempChipColor is either red or blue,
-                // xLastChipColor is red or blue
                 if (eTempChipColor == eLastChipColor)
                 {
-                    if ((lInARowCnt++ == (int)lTimesRepeatedForMax) &&
-                        (eTempChipColor == eHumanChipColor))
+                    if (lInARowCnt++ == (int)lTimesRepeatedForMax)
                     {
                         eKnownChipColor = eLastChipColor;
                         bEnabled = false;
@@ -125,6 +123,11 @@ class Chip_t
                 {
                     lInARowCnt = 1;
                 }
+            }
+            else
+            {
+                printf("Error in vUpdateFreq: Enabled is false\n");
+                u0_dbg_printf("Error in vUpdateFreq: Enabled is false\n");
             }
         }
 

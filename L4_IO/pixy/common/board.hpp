@@ -25,32 +25,30 @@ class Board_t
         enum PrintMode_t {LOCATION, COLOR, OPENCV_META};
         enum RowOrCol_t {ROW, COL};
 
-        Board_t(const Corners_t& xCorners, const ChipColor_t eHumanChipColor) : xWatchedChips(7),
-                    xWatchedCols(7, 0),
-                    ulRows(6),
-                    ulCols(7),
-                    xPointEMA_alpha(CHIP_LOC_EMA_ALPHA),
-                    xTolerance(CHIP_PROXIM_TOLERANCE)
+        Board_t() :
+            xWatchedChips(7),
+            xWatchedCols(7, 0),
+            ulRows(6),
+            ulCols(7),
+            ulDistBetweenRows(0),
+            ulDistBetweenCols(0),
+            xPointEMA_alpha(CHIP_LOC_EMA_ALPHA),
+            xTolerance(CHIP_PROXIM_TOLERANCE)
+        {}
+
+        Board_t(const Corners_t& xCorners, const ChipColor_t eHumanChipColor) :
+                xWatchedChips(7),
+                xWatchedCols(7, 0),
+                ulRows(6),
+                ulCols(7),
+                ulDistBetweenRows(0),
+                ulDistBetweenCols(0),
+                xPointEMA_alpha(CHIP_LOC_EMA_ALPHA),
+                xTolerance(CHIP_PROXIM_TOLERANCE)
         {
             vInitStringMap();
             vBuildGrid(xCorners, eHumanChipColor);
         }
-
-//        void vReset()
-//        {
-//            for (auto& xChip : xAllChips)
-//            {
-//                xChip.vReset();
-//            }
-            // xWatchedChips set in vPayAttentionTo
-//            for (auto& xWatchedChip : xWatchedChips)
-//            {
-//                xWatchedChip.vReset();
-//            }
-//            std::fill(xWatchedChips.begin(), xWatchedChips.end(), Chip_t());
-//            std::fill(xWatchedCols.begin(), xWatchedCols.end(), 0);
-//            vPayAttentionTo(0, 0, 0, 0, 0, 0, 0);
-//        }
 
         void vAdjustEMAAlpha(bool bEMAAlphaUp)
         {
@@ -59,42 +57,33 @@ class Board_t
                     std::max(xPointEMA_alpha - EMA_ALPHA_ADJ, 0.0001f);
         }
 
-//        bool xFillRow(int lRowNum, std::vector<Point_t<float>>& xRowVec)
-//        {
-//            if ((int)xRowVec.size() > ulCols ||
-//                 lRowNum >= ulRows || lRowNum < 0)
-//            {
-//                return false;
-//            }
-//            std::vector<Chip_t> xTempChips;
-//            for (auto lColElem: xRowVec)
-//            {
-//                Chip_t xChip(xPointEMA_alpha);
-//                xChip.xPtLoc.vUpdate(lColElem);
-//                xTempChips.push_back(xChip);
-//            }
-//            xAllChips.insert(xAllChips.begin() + ulCols * lRowNum,
-//                             xTempChips.begin(), xTempChips.end());
-//            return true;
-//        }
-
         int vBuildGrid (const Corners_t& xCorners_arg, const ChipColor_t eHumanChipColor)
         {
             std::vector<Point_t<float>> xTLBLPoints;
             std::vector<Point_t<float>> xTRBRPoints;
-
             Point_t<float>::xPointsOnLine(xCorners_arg(TOP_LEFT),
                                           xCorners_arg(BOT_LEFT), 6,
                                           xTLBLPoints);
             Point_t<float>::xPointsOnLine(xCorners_arg(TOP_RIGHT),
                                           xCorners_arg(BOT_RIGHT), 6,
                                           xTRBRPoints);
-
+            std::ostringstream oss;
+            oss << "xTLBLPoints:\n";
+            for (auto& pt : xTLBLPoints)
+            {
+                oss << pt.xStr() << "\n";
+            }
+            oss << "xTRBRPoints:\n";
+            for (auto& pt : xTRBRPoints)
+            {
+                oss << pt.xStr() << "\n";
+            }
+            printf("\n%s\n", oss.str().c_str());
+            u0_dbg_printf("\n%s\n", oss.str().c_str());
             ulDistBetweenRows = Point_t<float>::xCalcDist(
                     xCorners_arg(TOP_LEFT), xCorners_arg(BOT_LEFT)) / ulRows;
             ulDistBetweenCols = Point_t<float>::xCalcDist(
                     xCorners_arg(TOP_LEFT), xCorners_arg(TOP_RIGHT)) / ulCols;
-
             return xFillBoard(xTLBLPoints, xTRBRPoints, eHumanChipColor);
         }
 
@@ -109,6 +98,8 @@ class Board_t
             }
             int xRightPtIdx = 0;
             xAllChips.clear();
+            xAllChips.resize(ulRows * ulCols);
+            int lPtIdx = 0;
             for (Point_t<float>& xLeftPt : xTLBLPoints)
             {
                 std::vector<Point_t<float>> xPts;
@@ -118,25 +109,11 @@ class Board_t
                 {
                     Chip_t xChip(xPointEMA_alpha, eHumanChipColor);
                     xChip.xPtLoc.vUpdate(xPt);
-                    xAllChips.push_back(xChip);
+                    xAllChips[lPtIdx++] = xChip;
                 }
             }
-            return ((int)xAllChips.size() == ulRows * ulCols) ? 0 : 2;
+            return (lPtIdx == ulRows * ulCols) ? 0 : 2;
         }
-
-//        void vPayAttentionTo(int lCol0, int lCol1, int lCol2, int lCol3,
-//                             int lCol4, int lCol5, int lCol6)
-//        {
-//            std::fill(xWatchedChips.begin(), xWatchedChips.end(), Chip_t());
-//            xWatchedCols.clear();
-//            xWatchedCols.push_back(lCol0);
-//            xWatchedCols.push_back(lCol1);
-//            xWatchedCols.push_back(lCol2);
-//            xWatchedCols.push_back(lCol3);
-//            xWatchedCols.push_back(lCol4);
-//            xWatchedCols.push_back(lCol5);
-//            xWatchedCols.push_back(lCol6);
-//        }
 
         void vCalcSeenChips(std::vector<Block_t>& xBlocks,
                 std::vector<std::pair<int, ChipColor_t>>& xSeenChips)
@@ -145,7 +122,8 @@ class Board_t
             {
                 case STUPID: vChipAlgoStupid(xBlocks, xSeenChips); break;
                 case DOWN_RIGHT: vChipAlgoDownRight(xBlocks, xSeenChips); break;
-                default: std::cout << "Error selecting seen chip algo.\n"; break;
+                default: printf("Error selecting seen chip algo.\n");
+                         u0_dbg_printf("Error selecting seen chip algo.\n"); break;
             }
         }
 
@@ -289,11 +267,9 @@ class Board_t
                 }
                 if (lNoneCnt || lGreenCnt || lRedCnt)
                 {
-//                    std::cout << "This many: n" << xNoneCnt
-//                              << ", g: " << xGreenCnt
-//                              << ", r: " << xRedCnt << std::endl;
-                    xWatchedChips[lCol].vUpdateFreq(lNoneCnt, lGreenCnt,
-                                                    lRedCnt);
+                    printf("Seen in row %d, col: %d\t[N: %d\tG: %d\tR: %d]\n", lRow, lCol, lNoneCnt, lGreenCnt, lRedCnt);
+                    u0_dbg_printf("Seen in row %d, col: %d\t[N: %d\tG: %d\tR: %d]\n", lRow, lCol, lNoneCnt, lGreenCnt, lRedCnt);
+                    xWatchedChips[lCol].vUpdateFreq(lNoneCnt, lGreenCnt, lRedCnt);
                 }
             }
         }
@@ -404,9 +380,10 @@ class Board_t
         {
             if ((int)xAllChips.size() != ulRows * ulCols)
             {
-                std::cout << "Chip print error: Num chips: " << xAllChips.size()
-                          << ", rows: " << ulRows << "  cols: " << ulCols
-                          << std::endl;
+                printf("Chip print error: Num chips: %d, rows: %d, cols: %d\n",
+                        xAllChips.size(), ulRows, ulCols);
+                u0_dbg_printf("Chip print error: Num chips: %d, rows: %d, cols: %d\n",
+                            xAllChips.size(), ulRows, ulCols);
                 return;
             }
             switch (xPrintStyle)
@@ -546,8 +523,6 @@ class Board_t
             printf("%s\n", xOss.str().c_str());
             u0_dbg_printf("%s\n", xOss.str().c_str());
         }
-
-//        Corners_t xCorners;
 
     private:
         void vInitStringMap()

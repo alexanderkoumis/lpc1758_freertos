@@ -28,10 +28,16 @@ class PixyMouth_t
 		    printf("player move A5B6_%d\n", lColUpdate);
 		    u0_dbg_printf("player move A5B6_%d\n", lColUpdate);
 
-		    QueueHandle_t xQueueTXHandle =
-		            scheduler_task::getSharedObject(shared_PixyQueueTX);
+		    QueueHandle_t xQueueTXHandle = scheduler_task::getSharedObject(shared_PixyQueueTX);
 		    xQueueSend(xQueueTXHandle, &lColUpdate, portMAX_DELAY);
 		    return true;
+		}
+
+		void vEmitResetAck()
+		{
+		    bool bReset = true;
+            QueueHandle_t xQueueTXHandle = scheduler_task::getSharedObject(shared_PixyResetQueueTX);
+            xQueueSend(xQueueTXHandle, &bReset, portMAX_DELAY);
 		}
 };
 

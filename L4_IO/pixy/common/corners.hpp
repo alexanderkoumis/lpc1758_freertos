@@ -19,19 +19,10 @@ namespace pixy
 class Corners_t
 {
     public:
-        Corners_t()
-        {
-            xStats.resize(8);
-        }
-
-        void vReset()
-        {
-            for (auto& xStat : xStats)
-            {
-                xStat.vReset();
-            }
-            printf("Reset %d stats\n", xStats.size());
-        }
+        Corners_t() :
+                xStats(8),
+                bSet(false)
+        {}
 
         Point_t<float> operator() (Quadrant_t xQuadrant) const
         {
@@ -103,7 +94,6 @@ class Corners_t
                                 &br_y, &br_x);
             if (corner_tokens == 8)
             {
-                xCorners.vReset();
                 xCorners.xStats[2 * TOP_LEFT].vSetMean(tl_y);
                 xCorners.xStats[2 * TOP_LEFT + 1].vSetMean(tl_x);
                 xCorners.xStats[2 * TOP_RIGHT].vSetMean(tr_y);
@@ -150,6 +140,7 @@ class Corners_t
 
     private:
         std::vector<StatEMA_t> xStats;
+        bool bSet;
 };
 
 } // namespace pixy

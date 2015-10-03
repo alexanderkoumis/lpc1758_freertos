@@ -49,6 +49,8 @@ enum {
     shared_learnSemaphore, ///< Terminal command gives this semaphore to remoteTask (IR sensor task)
     shared_PixyQueueTX,
     shared_PixyQueueRX,
+    shared_PixyResetQueueTX,
+    shared_PixyResetQueueRX,
     shared_KillPixyQueue
 };
 

@@ -16,8 +16,6 @@
 #include "pixy/common/board.hpp"
 #include "pixy/common/block.hpp"
 
-#define FUCK() printf("%d %s\n", __LINE__, __func__); u0_dbg_printf("%d %s\n", __LINE__, __func__)
-
 namespace team9
 {
 namespace pixy
@@ -27,7 +25,7 @@ class PixyBrain_t
 {
     public:
         PixyBrain_t(ChipColor_t eColorCalib_arg, uint32_t ulChipsToCalib_arg) :
-//                pBoard(new Board_t),
+                pBoard(new Board_t),
                 eColorCalib(eColorCalib_arg),
                 lLastInsertCol(0),
                 ulChipsToCalib(ulChipsToCalib_arg),
@@ -35,11 +33,6 @@ class PixyBrain_t
                 usCamRowsHalf(usCamRows/2),
                 usCamColsHalf(usCamCols/2)
         {}
-//
-//        void vReset()
-//        {
-//            pBoard->vReset();
-//        }
 
         void vEMAAlphaUp()
         {

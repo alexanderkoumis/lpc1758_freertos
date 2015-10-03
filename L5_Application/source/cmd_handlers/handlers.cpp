@@ -58,7 +58,7 @@ CMD_HANDLER_FUNC(gameHandler)
 {
     using namespace team9;
 
-    static const char *pcUsageStr = "gameplay (debug|compete) <column>";
+    static const char *pcUsageStr = "gameplay (debug|compete|reset) <column>";
 
     QueueHandle_t xGameQueueRX;
     GameCommand_t xGameCommand;
@@ -69,6 +69,8 @@ CMD_HANDLER_FUNC(gameHandler)
 
     if (lNumTokens != 2)
     {
+        printf("Error! Wrong number of arguments. Expected 3, received %d\n"
+               "%s\n", lNumTokens - 1, pcUsageStr);
     	u0_dbg_printf("Error! Wrong number of arguments. Expected 3, received %d\n"
     		          "%s\n", lNumTokens - 1, pcUsageStr);
     }
@@ -85,7 +87,10 @@ CMD_HANDLER_FUNC(gameHandler)
     }
     else if (strcmp(pcGameType, "reset") == 0)
     {
-        xGameCommand.Load(eGame_t::RESET, ucCol);
+        bool bResetSentToPixy = true;
+        QueueHandle_t xResetQueueRX = scheduler_task::getSharedObject(shared_PixyResetQueueRX);
+        xQueueSend(xResetQueueRX, &bResetSentToPixy, portMAX_DELAY);
+        return true;
     }
     else
     {
@@ -148,7 +153,6 @@ CMD_HANDLER_FUNC(motorHandler)
         if(xQueueReceive(xMotorQueueTX, &xMotorBool, portMAX_DELAY))
         {
             wait = false;
-            //output.printf("On Top of the Column\n");
         }
     }
     return true;

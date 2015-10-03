@@ -33,18 +33,16 @@ class Pixy_t
     public:
         enum Button_t
         {
-//            START_BUTTON=0x01,   // SW(1)
-            CALIB_BUTTON=0x01,     // SW(1)
-            RESET_BUTTON=0x02,     // SW(2)
-            EMA_ALPHA_UP=0x04,     // SW(3)
-            EMA_ALPHA_DOWN=0x08    // SW(4)
+            RESET_BUTTON=0x01,  // SW(1)
+            CALIB_BUTTON=0x02,  // SW(2)
+            EMA_ALPHA_UP=0x04,  // SW(3)
+            EMA_ALPHA_DOWN=0x08 // SW(4)
         };
 
         enum State_t
         {
             CALIB_STATE,
             RESET_STATE,
-//            WAITING_FOR_START,
             WAITING_FOR_HUMAN,
             WAITING_FOR_BOT,
             WAITING_FOR_RESET,
@@ -54,13 +52,14 @@ class Pixy_t
         Pixy_t(uint32_t ulChipsAtATime, uint32_t ulChipsToCalib, ChipColor_t eColorCalib);
         void vAction(Button_t eButton);
 
-//        bool bStartPressed;
         bool bCalibPressed;
         bool bResetPressed;
         State_t eState;
         State_t eLastState;
 
     private:
+        bool bReceivedResetFromBotAsync();
+        void vUpdateState(Pixy_t::State_t eState_new);
         void vInitMapFunc();
         void vInitMapStr();
 
@@ -72,9 +71,8 @@ class Pixy_t
         std::map<State_t, std::string> xStateStrMap;
         std::unique_ptr<FuncMap_t<State_t, void>> xFuncMap;
 
-        Corners_t xCorners;
+        std::unique_ptr<Corners_t> xCornersPtr;
 };
-
 
 } // namespace pixy
 } // namespace team9
