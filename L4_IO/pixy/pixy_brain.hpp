@@ -1,11 +1,14 @@
 #ifndef PIXY_BRAIN_HPP
 #define PIXY_BRAIN_HPP
 
-#include <vector>
-#include <iostream>
-#include <queue>
 #include <algorithm>
+#include <iostream>
+#include <memory>
+#include <queue>
+#include <vector>
 #include <stack>
+
+#include "storage.hpp"
 
 #include "pixy.hpp"
 #include "pixy/pixy_eyes.hpp"
@@ -23,18 +26,13 @@ class PixyBrain_t
     public:
         PixyBrain_t(ChipColor_t eColorCalib_arg, uint32_t ulChipsToCalib_arg) :
                 pBoard(new Board_t),
-                lLastInsertCol(0),
                 eColorCalib(eColorCalib_arg),
+                lLastInsertCol(0),
                 ulChipsToCalib(ulChipsToCalib_arg),
                 usCamRows(200), usCamCols(320),
                 usCamRowsHalf(usCamRows/2),
                 usCamColsHalf(usCamCols/2)
         {}
-
-        void vReset()
-        {
-            pBoard->vReset();
-        }
 
         void vEMAAlphaUp()
         {
@@ -51,17 +49,19 @@ class PixyBrain_t
             return pBoard->xGetAlpha();
         }
 
-        bool vCalibBoard(PixyEyes_t* pPixyEyes)
+        void vCalibCorners(PixyEyes_t* pPixyEyes, Corners_t& xCorners)
         {
             uint32_t ulChips = 0;
             uint32_t ulCalibChips = 0;
-            Corners_t xCorners;
             while (ulChips < ulChipsToCalib)
             {
                 std::vector<Block_t> xBlocks;
-                u0_dbg_printf("BLOCKS\n");
-                ulChips += pPixyEyes->ulSeenBlocks(xBlocks);
-                u0_dbg_printf("BLOCKS\n");
+                int lSeenBlocks = pPixyEyes->lSeenBlocks(xBlocks);
+                if (lSeenBlocks < 0)
+                {
+                    continue;
+                }
+                ulChips += lSeenBlocks;
                 for (auto& xBlock : xBlocks)
                 {
                     if (xBlock.usSignature == eColorCalib)
@@ -75,46 +75,21 @@ class PixyBrain_t
                     }
                 }
             }
-
-            switch(pBoard->vBuildGrid(xCorners))
-            {
-                case 0:
-                {
-                    pBoard->xCorners = xCorners;
-                    pBoard->vPayAttentionTo(0, 0, 0, 0, 0, 0, 0);
-                    return true;
-                }
-                case 1:
-                {
-                    xErrorQueue.push("TLBL or TRBR lines had invalid # of pts");
-                    break;
-                }
-                case 2:
-                {
-                    std::ostringstream xOss;
-                    xOss << "Invalid # of chips after instantiation. "
-                         << "Expected: " << pBoard->ulExpectedTotalChips()
-                         << ", Actual: " << pBoard->ulActualTotalChips();
-                    xErrorQueue.push(xOss.str());
-                    break;
-                }
-            }
-            xErrorQueue.push("Problem building grid");
-            return false;
         }
 
         int lSampleChips(PixyEyes_t* pPixyEyes)
         {
             std::vector<Block_t> xBlocks;
             std::vector<std::pair<int, ChipColor_t>> xSeenChips;
-            pPixyEyes->ulSeenBlocks(xBlocks);
+            if (pPixyEyes->lSeenBlocks(xBlocks) < 0)
+            {
+                return -1;
+            }
             this->pBoard->vCalcSeenChips(xBlocks, xSeenChips);
             this->xLastSeen = xSeenChips;
             this->pBoard->vUpdate(xSeenChips);
             int lLastChipInserted = this->pBoard->lColChanged();
             return lLastChipInserted;
-//            this->lLastInsertCol = lLastChipInserted;
-//            return lLastChipInserted;
         }
 
         int lBotInsert(PixyCmd_t& xInsertCmd)
@@ -129,27 +104,6 @@ class PixyBrain_t
                 xErrorQueue.push("Column value out of bounds");
             }
             return lNewRow;
-        }
-
-        int lGetUpdate()
-        {
-            int lReturnVal = lLastInsertCol + 1;
-            return lReturnVal;
-//            if (xUpdateQueue.empty())
-//            {
-//                xErrorQueue.push("I have no updates for you! "
-//                                 "What do you want??");
-//                return -1;
-//            }
-//            int lLastInserted = xUpdateQueue.front();
-//            xUpdateQueue.pop();
-//            while (!xUpdateQueue.empty())
-//            {
-//                xErrorQueue.push("This should not be here: " +
-//                                 xUpdateQueue.front());
-//                xUpdateQueue.pop();
-//            }
-//            return lLastInserted;
         }
 
         void vPrintChips(Board_t::PrintMode_t xPrintMode,
@@ -186,6 +140,9 @@ class PixyBrain_t
             return oss.str();
         }
 
+        std::unique_ptr<Board_t> pBoard;
+        ChipColor_t eColorCalib;
+
     private:
         inline Quadrant_t xComputeQuadrant(Point_t<uint16_t>& xPoint)
         {
@@ -216,8 +173,6 @@ class PixyBrain_t
             return ERROR;
         }
 
-        std::unique_ptr<Board_t> pBoard;
-
         std::queue<std::string> xErrorQueue;
         std::queue<int> xUpdateQueue;
         std::stack<int> xColUpdate;
@@ -226,7 +181,6 @@ class PixyBrain_t
         Corners_t xLastCorners;
         int lLastInsertCol;
 
-        ChipColor_t eColorCalib;
         uint32_t ulChipsToCalib;
 
         uint16_t usCamRows;

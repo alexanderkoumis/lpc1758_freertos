@@ -1,11 +1,13 @@
 #ifndef PIXY_HPP
 #define PIXY_HPP
 
+#include <cstdio>
 #include <iostream>
 #include <map>
 #include <functional>
 
 #include "shared_handles.h"
+#include "storage.hpp"
 
 #include "pixy/config.hpp"
 #include "pixy/common.hpp"
@@ -29,197 +31,47 @@ typedef enum {
 class Pixy_t
 {
     public:
+        enum Button_t
+        {
+            RESET_BUTTON=0x01,  // SW(1)
+            CALIB_BUTTON=0x02,  // SW(2)
+            EMA_ALPHA_UP=0x04,  // SW(3)
+            EMA_ALPHA_DOWN=0x08 // SW(4)
+        };
+
         enum State_t
         {
-            RESET=0x01,             // SW(1)
-            EMA_ALPHA_UP=0x02,      // SW(2)
-            EMA_ALPHA_DOWN=0x04,    // SW(3)
-            START=0x08,             // SW(4)
-            CALIB=16,
-            WAITING_FOR_HUMAN=17,
-            WAITING_FOR_BOT=18,
-            NOTIFY_BOT_OF_HUMAN_ACTIVIY=19,
-            WAITING_FOR_START=20,
-            ERROR=21
-        } eState, eLastState;
+            CALIB_STATE,
+            RESET_STATE,
+            WAITING_FOR_HUMAN,
+            WAITING_FOR_BOT,
+            WAITING_FOR_RESET,
+            ERROR
+        };
 
-        bool bStarted;
-        int lLastHumanCol;
+        Pixy_t(uint32_t ulChipsAtATime, uint32_t ulChipsToCalib, ChipColor_t eColorCalib);
+        void vAction(Button_t eButton);
 
-        Pixy_t () : bStarted(false), lLastHumanCol(-1), eState(CALIB), eLastState(CALIB)
-        {}
-
-        Pixy_t (uint32_t ulChipsAtATime, uint32_t ulChipsToCalib,
-                ChipColor_t eColorCalib) :
-                bStarted(false),
-                lLastHumanCol(-1),
-                eState(CALIB),
-                eLastState(CALIB),
-                pPixyBrain(new pixy::PixyBrain_t(eColorCalib, ulChipsToCalib)),
-                pPixyEyes(new pixy::PixyEyes_t(ulChipsAtATime)),
-                pPixyMouth(new pixy::PixyMouth_t),
-                xFuncMap(new FuncMap_t<State_t, void>)
-        {
-            vInitMapFunc();
-            vInitMapStr();
-        }
-
-        void vAction(uint8_t xButton)
-        {
-            eLastState = eState;
-            u0_dbg_printf("State: %s\n", xStringMap[eState].c_str());
-            if (eLastState != eState)
-            {
-                u0_dbg_printf("CHANGE STATE\n");
-            }
-            if (xButton)
-            {
-                eState = (State_t)xButton;
-            }
-            xFuncMap->vResponse(eState)();
-        }
+        bool bCalibPressed;
+        bool bResetPressed;
+        State_t eState;
+        State_t eLastState;
 
     private:
-        void vInitMapFunc()
-        {
-            xFuncMap->vSetHandler(RESET, [&] ()
-            {
-                pPixyEyes->vReset();
-                pPixyBrain->vReset();
-                eState = WAITING_FOR_START;
-            });
-
-            xFuncMap->vSetHandler(EMA_ALPHA_UP, [&] ()
-            {
-                pPixyBrain->vEMAAlphaUp();
-                std::cout << "Alpha: " << pPixyBrain->xGetAlpha() << std::endl;
-                eState = eLastState;
-            });
-
-            xFuncMap->vSetHandler(EMA_ALPHA_DOWN, [&] ()
-            {
-                pPixyBrain->vEMAAlphaDown();
-                std::cout << "Alpha: " << pPixyBrain->xGetAlpha() << std::endl;
-                eState = eLastState;
-            });
-
-            xFuncMap->vSetHandler(WAITING_FOR_START, [&] ()
-            {
-                if (bStarted)
-                {
-                    eState = WAITING_FOR_HUMAN;
-                    return;
-                }
-                else
-                {
-                    eState = WAITING_FOR_START;
-                }
-            });
-
-            xFuncMap->vSetHandler(CALIB, [&] ()
-            {
-                if (pPixyBrain->vCalibBoard(pPixyEyes.get()))
-                {
-                    pPixyBrain->vPrintCorners(Board_t::LOCATION);
-                    eState = WAITING_FOR_START;
-                }
-                else
-                {
-                    eState = ERROR;
-                }
-            });
-
-            xFuncMap->vSetHandler(START, [&] ()
-            {
-                bStarted = true;
-                eState = WAITING_FOR_START;
-            });
-
-            xFuncMap->vSetHandler(WAITING_FOR_HUMAN, [&] ()
-            {
-                lLastHumanCol = pPixyBrain->lSampleChips(pPixyEyes.get());
-                printf("Last Human Col: %d\n", lLastHumanCol);
-                u0_dbg_printf("Last Human Col: %d\n", lLastHumanCol);
-                if (lLastHumanCol >= 0)
-                {
-                    pPixyBrain->vPrintChips(Board_t::COLOR, true);
-                    eState = NOTIFY_BOT_OF_HUMAN_ACTIVIY;
-                }
-                else
-                {
-                    eState = WAITING_FOR_HUMAN;
-                }
-                pPixyBrain->vPrintCorners(Board_t::COLOR);
-            });
-
-            xFuncMap->vSetHandler(WAITING_FOR_BOT, [&] ()
-            {
-                PixyCmd_t xBotInsertCmd;
-
-                if (xQueueReceive(
-                        scheduler_task::getSharedObject(shared_PixyQueueRX),
-                        &xBotInsertCmd, portMAX_DELAY))
-                {
-                    std::cout << "command column: " << xBotInsertCmd.lColumn << "\n"
-                              << "command color: " << xBotInsertCmd.lColor << std::endl;
-                    ChipColor_t xChipColor = (ChipColor_t)xBotInsertCmd.lColor;
-                    int lColumn = xBotInsertCmd.lColumn;
-                    int lNewRow = pPixyBrain->lBotInsert(xBotInsertCmd);
-                    if (lNewRow > 0)
-                    {
-                        std::cout << "After insertion of color " << xChipColor
-                                  << " into column " << lColumn
-                                  << ", column height is now: " << lNewRow
-                                  << std::endl;
-                    }
-                    else
-                    {
-                        eState = ERROR;
-                        return;
-                    }
-                    pPixyBrain->vPrintChips(Board_t::COLOR, true);
-                    eState = WAITING_FOR_HUMAN;
-                }
-                else
-                {
-                    eState = WAITING_FOR_BOT;
-                }
-            });
-
-            xFuncMap->vSetHandler(NOTIFY_BOT_OF_HUMAN_ACTIVIY, [&] ()
-            {
-                pPixyMouth->xEmitUpdate(lLastHumanCol);
-                lLastHumanCol = -1;
-                eState = WAITING_FOR_BOT;
-            });
-
-            xFuncMap->vSetHandler(ERROR, [&] ()
-            {
-                std::cout << pPixyBrain->xGetErrors() << std::endl;
-                eState = CALIB;
-            });
-        }
-
-        void vInitMapStr()
-        {
-            xStringMap[RESET] = std::string("RESET");
-            xStringMap[CALIB] = std::string("CALIB");
-            xStringMap[WAITING_FOR_BOT] = std::string("WAITING_FOR_BOT");
-            xStringMap[WAITING_FOR_HUMAN] = std::string("WAITING_FOR_HUMAN");
-            xStringMap[NOTIFY_BOT_OF_HUMAN_ACTIVIY] = std::string("NOTIFY_BOT_OF_HUMAN_ACTIVIY");
-            xStringMap[ERROR] = std::string("ERROR");
-            xStringMap[EMA_ALPHA_UP] = std::string("EMA_ALPHA_UP");
-            xStringMap[EMA_ALPHA_DOWN] = std::string("EMA_ALPHA_UP");
-            xStringMap[START] = std::string("START");
-            xStringMap[WAITING_FOR_START] = std::string("WAITING_FOR_START");
-        }
+        bool bReceivedResetFromBotAsync();
+        void vUpdateState(Pixy_t::State_t eState_new);
+        void vInitMapFunc();
+        void vInitMapStr();
 
         std::unique_ptr<pixy::PixyBrain_t> pPixyBrain;
         std::unique_ptr<pixy::PixyEyes_t> pPixyEyes;
         std::unique_ptr<pixy::PixyMouth_t> pPixyMouth;
 
-        std::map<State_t, std::string> xStringMap;
+        std::map<Button_t, std::string> xButtonStrMap;
+        std::map<State_t, std::string> xStateStrMap;
         std::unique_ptr<FuncMap_t<State_t, void>> xFuncMap;
+
+        std::unique_ptr<Corners_t> xCornersPtr;
 };
 
 } // namespace pixy

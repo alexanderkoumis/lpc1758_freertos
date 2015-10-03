@@ -28,7 +28,7 @@ class Stat_t
 
         bool vPreOp(float xVal)
         {
-            xCnt+= int16_t(1);
+            xCnt += int16_t(1);
             if (xCnt == int16_t(1))
             {
                 xNewMean = xOldMean = Fix16(xVal);
@@ -54,14 +54,21 @@ class Stat_t
             xCnt = int16_t(0);
         }
 
+        void vSetMean(float xVal)
+        {
+            xNewMean = Fix16(xVal);
+            xOldMean = Fix16(xVal);
+            xCnt = int16_t(1);
+        }
+
         float xMean() const
         {
-            return (xCnt > int16_t(1)) ? fix16_to_float(xNewMean) : 0.0;
+            return (xCnt >= int16_t(1)) ? fix16_to_float(xNewMean) : 0.0;
         }
 
         float xVariance() const
         {
-            return (xCnt > int16_t(1)) ? fix16_to_float(xNewStdDev/xCnt) : 0.0;
+            return (xCnt >= int16_t(1)) ? fix16_to_float(xNewStdDev/xCnt) : 0.0;
         }
 
         float xStdDev() const

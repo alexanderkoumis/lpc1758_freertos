@@ -69,7 +69,7 @@ class terminalTask : public scheduler_task
 namespace team9
 {
 
-enum eGame_t {DEBUG, COMPETE};
+enum eGame_t {DEBUG, COMPETE, RESET};
 enum eDirection_t {LEFT, RIGHT};
 
 struct xMotorCommand_t
@@ -132,7 +132,7 @@ class MotorTask_t : public scheduler_task
         const int lPclkDivider = 8;
         const int lStepsPerRot = 400;
         unsigned int ulSysClk;
-        float xMotorFreq = 0.65;
+        float xMotorFreq = 1.0;
 };
 
 namespace pixy
@@ -147,8 +147,12 @@ class PixyTask_t : public scheduler_task
 		{
             QueueHandle_t xQueueTXHandle = xQueueCreate(1, sizeof(int));
             QueueHandle_t xQueueRXHandle = xQueueCreate(1, sizeof(PixyCmd_t));
+            QueueHandle_t xQueueResetTXHandle = xQueueCreate(1, sizeof(bool));
+            QueueHandle_t xQueueResetRXHandle = xQueueCreate(1, sizeof(bool));
             addSharedObject(shared_PixyQueueTX, xQueueTXHandle);
             addSharedObject(shared_PixyQueueRX, xQueueRXHandle);
+            addSharedObject(shared_PixyResetQueueTX, xQueueResetTXHandle);
+            addSharedObject(shared_PixyResetQueueRX, xQueueResetRXHandle);
             ssp1_set_max_clock(1);
 			delay_ms(128);
 			while(LPC_SSP1->SR & (1 << 4));
@@ -165,7 +169,7 @@ class PixyTask_t : public scheduler_task
 
         bool run(void *p)
         {
-            pPixy->vAction(SW.getSwitchValues());
+            pPixy->vAction((Pixy_t::Button_t)SW.getSwitchValues());
             return true;
         }
 

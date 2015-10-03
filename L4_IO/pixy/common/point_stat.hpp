@@ -142,7 +142,8 @@ class PointEMA_t : public PointStat_t
             }
             else
             {
-                std::cout << "ERROR: Attempt to update PointEMA before init\n";
+                printf("ERROR: Attempt to update PointEMA before init\n");
+                u0_dbg_printf("ERROR: Attempt to update PointEMA before init\n");
             }
         }
 

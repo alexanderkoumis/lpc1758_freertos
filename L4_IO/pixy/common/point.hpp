@@ -19,7 +19,6 @@ struct Point_t
         std::tie(xY, xX) = std::tie(xY_arg, xX_arg);
     }
 
-
     template<typename T1>
     operator Point_t<T1> ()
     {
@@ -138,7 +137,6 @@ struct Point_t
             return xPoint += Point_t<float>(xIdx*xYDistInc, xIdx*xXDistInc);
         });
     }
-
 
 };
 

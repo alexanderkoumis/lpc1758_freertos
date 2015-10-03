@@ -1,6 +1,8 @@
 #ifndef PIXY_MOUTH_HPP
 #define PIXY_MOUTH_HPP
 
+#include "printf_lib.h"
+
 #include "pixy/common.hpp"
 
 namespace team9
@@ -20,16 +22,22 @@ class PixyMouth_t
 		    {
 		        return false;
 		    }
-		    u0_dbg_printf("Trying to send %d over queue\n", lColUpdate);
 		    printf("Trying to send %d over queue\n", lColUpdate);
+            u0_dbg_printf("Trying to send %d over queue\n", lColUpdate);
 
 		    printf("player move A5B6_%d\n", lColUpdate);
 		    u0_dbg_printf("player move A5B6_%d\n", lColUpdate);
 
-		    QueueHandle_t xQueueTXHandle =
-		            scheduler_task::getSharedObject(shared_PixyQueueTX);
+		    QueueHandle_t xQueueTXHandle = scheduler_task::getSharedObject(shared_PixyQueueTX);
 		    xQueueSend(xQueueTXHandle, &lColUpdate, portMAX_DELAY);
 		    return true;
+		}
+
+		void vEmitResetAck()
+		{
+		    bool bReset = true;
+            QueueHandle_t xQueueTXHandle = scheduler_task::getSharedObject(shared_PixyResetQueueTX);
+            xQueueSend(xQueueTXHandle, &bReset, portMAX_DELAY);
 		}
 };
 

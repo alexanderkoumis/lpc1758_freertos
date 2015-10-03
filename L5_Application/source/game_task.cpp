@@ -73,28 +73,16 @@ bool GameTask_t::run(void *p)
     QueueHandle_t xPixyRXHandle;
 
     int lHumanCol = 0;
+    xPixyCmd.bReset = false;
 
-    // Receiving human chip insertion
-    printf("WAITING FOR SOME SHIT\n");
-    u0_dbg_printf("WAITING FOR SOME OTHER SHIT\n");
+    printf("Waiting for human chip insertion\n");
 
     xPixyTXHandle = scheduler_task::getSharedObject(shared_PixyQueueTX);
     xQueueReceive(xPixyTXHandle, &lHumanCol, portMAX_DELAY);
 
-
-    std::cout << "player move big dicks" << std::endl;
-
     if (xQueueReceive(getSharedObject(shared_GameQueueRX), &xGameCommand,
     				  portMAX_DELAY))
     {
-//        if(xGameCommand.eGame == eGame_t::COMPETE)
-//        {
-//            printf("player move A5B6_%d\n", lHumanCol);
-//        }
-//        else if(xGameCommand.eGame == eGame_t::DEBUG)
-//        {
-//            printf("machine move A5B6_%d\n", xGameCommand.ucCol);
-//        }
         this->vRunStepper(xGameCommand.ucCol);
     }
 
@@ -108,4 +96,4 @@ bool GameTask_t::run(void *p)
     return true;
 }
 
-} // End team9 namespacee
+} // End team9 namespace
